@@ -19,7 +19,7 @@ fn main() {
 fn oscillate_motors(time: Res<Time>, mut joints: Query<&mut DistanceJoint>) {
     let seconds = time.elapsed_seconds();
     for mut joint in &mut joints {
-        joint.rest_length = (4. * seconds).sin() * 0.5 + 0.1;
+        joint.rest_length = (12. * seconds).sin() * 0.5 + 0.1;
     }
 }
 
@@ -86,7 +86,7 @@ fn setup(
             .with_angle_limits(-FRAC_PI_3, FRAC_PI_3)
             // .with_linear_velocity_damping(0.1)
             // .with_angular_velocity_damping(1.0)
-            // .with_compliance(1.0 / 100.0),
+            .with_compliance(1.0 / 1000.0),
     );
 
     commands.spawn(
@@ -97,9 +97,8 @@ fn setup(
             // .with_limits(0.75, 2.5)
             // .with_linear_velocity_damping(0.1)
             // .with_angular_velocity_damping(1.0)
-            .with_compliance(1.0 / 10.0),
+            .with_compliance(1.0 / 100.0),
     );
-
 
     // Light
     commands.spawn(PointLightBundle {
