@@ -4,6 +4,10 @@ I'm gonna try to just do more open development here so people can see the scratc
 
 # And the last toots shall be first
 
+* [Try to make this tootable-repo a thing](https://mastodon.gamedev.place/@shanecelis/110831084150608229); tagged [toot1](https://github.com/shanecelis/muscley-wusaley/tree/toot1)
+
+![Getting somewhere very slowly](assets/getting-somewhere-slowly.gif)
+
 * [Makin' some muscles](https://mastodon.gamedev.place/@shanecelis/110830924772262798); tagged [toot0](https://github.com/shanecelis/muscley-wusaley/tree/toot0)
 
 ![muscley joint](assets/muscley-joint.gif)
