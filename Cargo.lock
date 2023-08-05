@@ -2279,6 +2279,7 @@ dependencies = [
  "bevy",
  "bevy_panorbit_camera",
  "bevy_xpbd_3d",
+ "parry3d",
 ]
 
 [[package]]
