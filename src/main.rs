@@ -29,33 +29,35 @@ fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
     Isometry::<Scalar>::new(pos.into(), rot.to_scaled_axis().into())
 }
 
+#[derive(Clone, Debug)]
 struct Part {
-    collider: Collider,
+    extents: Vector3,
     position: Vector3,
     rotation: Quat,
 }
 
 impl Part {
-    fn shape(&self) -> Option<shape::Box> {
-        self.collider.as_cuboid().map(|c| {
-            let v = c.half_extents;
-            shape::Box::new(v[0] * 2., v[1] * 2., v[1] * 2.)
-        })
+    fn shape(&self) -> shape::Box {
+        let v = self.extents;
+        shape::Box::new(v[0], v[1], v[2])
     }
 
-    fn unwrap(self) -> Collider {
-        self.collider
+    fn collider(&self) -> Collider {
+        let v = self.extents;
+        Collider::cuboid(v[0], v[1], v[2])
     }
 }
 
 trait Stampable {
+    fn position(&self) -> Vector3;
+    fn rotation(&self) -> Quat;
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)>;
     fn cast_to(&self, point: Vector3) -> Option<Vector3>;
-    fn position(&self) -> Vector3;
 }
 
 impl Stampable for Part {
     fn position(&self) -> Vector3 { self.position }
+    fn rotation(&self) -> Quat { self.rotation }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
         if let Some(intersect1) = onto.cast_to(self.position()) {
@@ -63,10 +65,17 @@ impl Stampable for Part {
                 // We can put ourself into the right place.
                 let delta = intersect2 - intersect1;
                 println!("i1 {intersect1} i2 {intersect2}");
-                let p1 = intersect1;
-                let p2 = intersect2;
-                // let p1 = onto.to_local(intersect1);
-                // let p2 = self.to_local(intersect2);
+                let p1 = Transform::from_translation(onto.position())
+                    .with_rotation(onto.rotation())
+                    .compute_matrix()
+                    .inverse()
+                    .transform_point3(intersect1);
+                let p2 = Transform::from_translation(self.position)
+                    .with_rotation(self.rotation)
+                    .compute_matrix()
+                    .inverse()
+                    .transform_point3(intersect2);
+                println!("p1 {p1} p2 {p2}");
                 self.position -= delta;
                 return Some((p1, p2));
             }
@@ -77,8 +86,24 @@ impl Stampable for Part {
     fn cast_to(&self, point: Vector3) -> Option<Vector3> {
         let r = parry3d::query::details::Ray::new(self.position().into(), (point - self.position()).into());
         let m = make_isometry(self.position(), &Rotation(self.rotation));
-        self.collider.cast_ray_and_get_normal(&m, &r, 100., false).map(|intersect| r.point_at(intersect.toi).into())
+        self.collider().cast_ray_and_get_normal(&m, &r, 100., false).map(|intersect| r.point_at(intersect.toi).into())
     }
+}
+
+fn make_snake(n : u8, root: &Part)  -> Vec<(Part, (Vec3, Vec3))> {
+    let mut results = Vec::new();
+    let mut parent = root.clone();
+    for i in 0..n {
+        let mut child : Part = parent.clone();
+        child.position += 5. * -Vector3::X;
+        child.extents /= 2.;
+        if let Some((p1, p2)) = child.stamp(&parent) {
+            // let joint = make_joint(p1, p2);
+            results.push((child.clone(), (p1, p2)));
+        }
+        parent = child;
+    }
+    results
 }
 
 fn setup(
@@ -105,14 +130,13 @@ fn setup(
         ));
 
     let root = Part {
-        collider: Collider::cuboid(1., 1., 1.),
+        extents: Vector::new(1., 1., 1.),
         position: Vector::Y,
         rotation: Quat::IDENTITY
     };
     let p = Vector3::new(1., 2., 1.);
-    let c = Collider::cuboid(0.5, 0.5, 0.5);
     let mut child = Part {
-        collider: c,
+        extents: Vector::new(0.5, 0.5, 0.5),
         position: p,
         rotation: Quat::IDENTITY
     };
@@ -122,7 +146,7 @@ fn setup(
     let root_cube = commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(root.shape().unwrap())),
+                mesh: meshes.add(Mesh::from(root.shape())),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
             },
@@ -130,7 +154,7 @@ fn setup(
             // RigidBody::Dynamic,
             Rotation(root.rotation),
             Position(root.position),
-            root.unwrap()
+            root.collider()
         ))
         .id();
 
@@ -162,16 +186,16 @@ fn setup(
     let child_cube = commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(child.shape().unwrap())),
+                mesh: meshes.add(Mesh::from(child.shape())),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
             },
             RigidBody::Static,
             // RigidBody::Dynamic,
             Position(child.position),
-            MassPropertiesBundle::new_computed(&child.collider, 1.0),
+            MassPropertiesBundle::new_computed(&child.collider(), 1.0),
             // c,
-            child.unwrap()
+            child.collider()
         ))
         .id();
 
