@@ -7,6 +7,10 @@ use rand::seq::SliceRandom;
 use std::f64::consts::{FRAC_PI_4, FRAC_PI_3, PI, TAU};
 use nalgebra::point;
 
+/// Use an even and odd part scheme so that the root part is even. Every part
+/// successively attached is odd then even then odd. Then we don't allow even
+/// and odd parts to collide. This is how we can create our own "no collisions
+/// between objects that share a joint."
 #[derive(PhysicsLayer)]
 enum Layer {
     Ground,
@@ -39,7 +43,7 @@ fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &Spr
     }
 }
 
-// Copied from xpbd
+// Copied from xpbd. It's only pub(crate) there.
 fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
     Isometry::<Scalar>::new(pos.into(), rot.to_scaled_axis().into())
 }
@@ -78,6 +82,7 @@ impl Part {
         // We prefer this method to bevy's `Transform` because it can be done
         // with f64 just as easily as f32.
         make_isometry(self.position, &Rotation(self.rotation))
+            // FIXME: Is there a From or Into defined somewhere?
             .transform_point(&point![ point.x, point.y, point.z ]).into()
     }
 }
@@ -138,12 +143,11 @@ impl Stampable for Part {
 fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     let mut results = Vec::new();
     let mut parent = parent.clone();
-    for i in 0..n {
+    for _ in 0..n {
         let mut child: Part = parent.clone();
         child.position += 5. * Vector3::X;
         child.extents *= 0.6;
         if let Some((p1, p2)) = child.stamp(&parent) {
-            // let joint = make_joint(p1, p2);
             results.push((child.clone(), (p1, p2)));
         }
         parent = child;
