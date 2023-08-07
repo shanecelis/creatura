@@ -4,13 +4,15 @@ use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
 use parry3d_f64 as parry3d;
 use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
-use std::f64::consts::{FRAC_PI_3, PI, TAU};
+use std::f64::consts::{FRAC_PI_4, FRAC_PI_3, PI, TAU};
 use nalgebra::point;
 
 #[derive(PhysicsLayer)]
 enum Layer {
     Ground,
     Part,
+    PartEven,
+    PartOdd,
 }
 
 fn main() {
@@ -73,25 +75,23 @@ impl Part {
     }
 
     fn from_local(&self, point: Vector3) -> Vector3 {
-
+        // We prefer this method to bevy's `Transform` because it can be done
+        // with f64 just as easily as f32.
         make_isometry(self.position, &Rotation(self.rotation))
-            // .inverse()
-            // .absolute_transform_vector(point)
-            // .transform_point(point.into())
             .transform_point(&point![ point.x, point.y, point.z ]).into()
-        // Transform::from_translation(self.position.as_f32())
-        //     .with_rotation(self.rotation.as_f32())
-        //     // .compute_matrix()
-        //     // .inverse()
-        //     .transform_point(point.as_f32()).into()
     }
 }
 
 trait Stampable {
+    /// Return object position.
     fn position(&self) -> Vector3;
+    /// Return object orientation.
     fn rotation(&self) -> Quaternion;
+    /// Stamp object onto another, return the local vectors of each where they connect.
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)>;
+    /// Raycast from within the object to determine a point on its surface.
     fn cast_to(&self, point: Vector3) -> Option<Vector3>;
+    /// Convert a world point to a local point.
     fn to_local(&self, point: Vector3) -> Vector3;
 }
 
@@ -104,17 +104,9 @@ impl Stampable for Part {
     }
 
     fn to_local(&self, point: Vector3) -> Vector3 {
-        // FIXME: Reconsider using Isometry here.
         make_isometry(self.position, &Rotation(self.rotation))
             .inverse()
-            // .absolute_transform_vector(point)
-            // .transform_point(point.into())
             .transform_point(&point![ point.x, point.y, point.z ]).into()
-        // Transform::from_translation(self.position.as_f32())
-        //     .with_rotation(self.rotation.as_f32())
-        //     .compute_matrix()
-        //     .inverse()
-        //     .transform_point3(point.as_f32()).into()
     }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
@@ -122,22 +114,8 @@ impl Stampable for Part {
             if let Some(intersect2) = self.cast_to(onto.position()) {
                 // We can put ourself into the right place.
                 let delta = intersect2 - intersect1;
-                // println!("i1 {intersect1} i2 {intersect2}");
-                // let p1 = intersect1;
-                // let p2 = intersect2;
                 let p1 = onto.to_local(intersect1);
                 let p2 = self.to_local(intersect2);
-                // let p1 = Transform::from_translation(onto.position())
-                //     .with_rotation(onto.rotation())
-                //     .compute_matrix()
-                //     .inverse()
-                //     .transform_point3(intersect1);
-                // let p2 = Transform::from_translation(self.position)
-                //     .with_rotation(self.rotation)
-                //     .compute_matrix()
-                //     .inverse()
-                //     .transform_point3(intersect2);
-                // println!("p1 {p1} p2 {p2}");
                 self.position -= delta;
                 return Some((p1, p2));
             }
@@ -193,7 +171,7 @@ fn setup(
             material: materials.add(ground_color.into()),
             ..default()
         },
-        CollisionLayers::new([Layer::Ground], [Layer::Part]),
+        CollisionLayers::new([Layer::Ground], [Layer::Part, Layer::PartEven, Layer::PartOdd]),
         RigidBody::Static,
         Collider::cuboid(10., 0.1, 10.),
     ));
@@ -213,8 +191,8 @@ fn setup(
 
     let pinks = vec![
         // Color::rgb_u8(253, 162, 231),
-        // Color::rgb_u8(253, 53, 176),
-        Color::rgb_u8(254, 134, 212),
+        Color::rgb_u8(253, 53, 176),
+        // Color::rgb_u8(254, 134, 212),
     ];
 
     // Root cube
@@ -232,12 +210,12 @@ fn setup(
             Position(parent.position),
             parent.collider(),
 
-            CollisionLayers::new([Layer::Part], [Layer::Ground]),
+            CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven]),
         ))
         .id();
 
     let density = 1.0;
-    for (child, (p1, p2)) in make_snake(4, &parent) {
+    for (i, (child, (p1, p2))) in make_snake(4, &parent).into_iter().enumerate() {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
@@ -256,16 +234,32 @@ fn setup(
                 MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
                 // c,
                 child.collider(),
-                CollisionLayers::new([Layer::Part], [Layer::Ground]),
+                if (i + 1) % 2 == 0 {
+                    CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven])
+                } else {
+                    CollisionLayers::new([Layer::PartOdd], [Layer::Ground, Layer::PartOdd])
+                },
             ))
             .id();
 
+        // commands.spawn(
+        //     RevoluteJoint::new(parent_cube, child_cube)
+        //         .with_local_anchor_1(p1)
+        //         .with_local_anchor_2(p2)
+        //         .with_aligned_axis(Vector::Z)
+        //         .with_angle_limits(-FRAC_PI_3, FRAC_PI_3), // .with_linear_velocity_damping(0.1)
+        //                                                    // .with_angular_velocity_damping(1.0)
+        //                                                    // .with_compliance(1.0 / 1000.0),
+        // );
         commands.spawn(
-            RevoluteJoint::new(parent_cube, child_cube)
+            SphericalJoint::new(parent_cube, child_cube)
+                .with_swing_axis(Vector::Y)
+                .with_twist_axis(Vector::X)
                 .with_local_anchor_1(p1)
                 .with_local_anchor_2(p2)
-                .with_aligned_axis(Vector::Z)
-                .with_angle_limits(-FRAC_PI_3, FRAC_PI_3), // .with_linear_velocity_damping(0.1)
+                // .with_aligned_axis(Vector::Z)
+                .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
+                .with_twist_limits(-FRAC_PI_4, FRAC_PI_4), // .with_linear_velocity_damping(0.1)
                                                            // .with_angular_velocity_damping(1.0)
                                                            // .with_compliance(1.0 / 1000.0),
         );
@@ -273,7 +267,6 @@ fn setup(
         let a2 = child.extents * Vector::new(0.5, 0.5, 0.0);
 
         let rest_length = (parent.from_local(a1) - child.from_local(a2)).length();
-        // println!("length {length}");
 
         let length_scale = 0.4;
         commands.spawn((
