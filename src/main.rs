@@ -1,9 +1,9 @@
 use bevy::prelude::*;
-use std::f32::consts::{PI, TAU, FRAC_PI_3};
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use bevy_panorbit_camera::{PanOrbitCameraPlugin, PanOrbitCamera};
-use parry3d::{query::*, math::Isometry};
+use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
+use std::f32::consts::{FRAC_PI_3, PI, TAU};
 
 fn main() {
     let mut app = App::new();
@@ -23,7 +23,9 @@ fn main() {
 fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
     let seconds = time.elapsed_seconds();
     for (mut joint, oscillator) in &mut joints {
-        joint.rest_length = (oscillator.max - oscillator.min) * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5) + oscillator.min;
+        joint.rest_length = (oscillator.max - oscillator.min)
+            * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
+            + oscillator.min;
     }
 }
 
@@ -86,8 +88,12 @@ trait Stampable {
 }
 
 impl Stampable for Part {
-    fn position(&self) -> Vector3 { self.position }
-    fn rotation(&self) -> Quat { self.rotation }
+    fn position(&self) -> Vector3 {
+        self.position
+    }
+    fn rotation(&self) -> Quat {
+        self.rotation
+    }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
         if let Some(intersect1) = onto.cast_to(self.position()) {
@@ -116,17 +122,22 @@ impl Stampable for Part {
     }
 
     fn cast_to(&self, point: Vector3) -> Option<Vector3> {
-        let r = parry3d::query::details::Ray::new(self.position().into(), (point - self.position()).into());
+        let r = parry3d::query::details::Ray::new(
+            self.position().into(),
+            (point - self.position()).into(),
+        );
         let m = make_isometry(self.position(), &Rotation(self.rotation));
-        self.collider().cast_ray_and_get_normal(&m, &r, 100., false).map(|intersect| r.point_at(intersect.toi).into())
+        self.collider()
+            .cast_ray_and_get_normal(&m, &r, 100., false)
+            .map(|intersect| r.point_at(intersect.toi).into())
     }
 }
 
-fn make_snake(n : u8, parent: &Part)  -> Vec<(Part, (Vec3, Vec3))> {
+fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vec3, Vec3))> {
     let mut results = Vec::new();
     let mut parent = parent.clone();
     for i in 0..n {
-        let mut child : Part = parent.clone();
+        let mut child: Part = parent.clone();
         child.position += 5. * Vector3::X;
         child.extents *= 0.6;
         if let Some((p1, p2)) = child.stamp(&parent) {
@@ -137,7 +148,6 @@ fn make_snake(n : u8, parent: &Part)  -> Vec<(Part, (Vec3, Vec3))> {
     }
     results
 }
-
 
 fn setup(
     mut commands: Commands,
@@ -153,27 +163,26 @@ fn setup(
     let mut rng = rand::thread_rng();
     let ground_color = Color::rgb_u8(226, 199, 184);
     // Ground
-    commands
-        .spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(10., 0.1, 10.))),
-                material: materials.add(ground_color.into()),
-                ..default()
-            },
-            RigidBody::Static,
-            Collider::cuboid(10., 0.1, 10.),
-        ));
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::new(10., 0.1, 10.))),
+            material: materials.add(ground_color.into()),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(10., 0.1, 10.),
+    ));
 
     let mut parent = Part {
         extents: Vector::new(1., 1., 1.),
         position: Vector::Y,
-        rotation: Quat::IDENTITY
+        rotation: Quat::IDENTITY,
     };
     let p = Vector3::new(1., 2., 1.);
     let mut child = Part {
         extents: Vector::new(0.5, 0.5, 0.5),
         position: p,
-        rotation: Quat::IDENTITY
+        rotation: Quat::IDENTITY,
     };
     let _ = child.stamp(&parent);
 
@@ -181,10 +190,10 @@ fn setup(
         // Color::rgb_u8(253, 162, 231),
         // Color::rgb_u8(253, 53, 176),
         Color::rgb_u8(254, 134, 212),
-        ];
+    ];
 
     // Root cube
-    let color : Color = *pinks.choose(&mut rng).unwrap();
+    let color: Color = *pinks.choose(&mut rng).unwrap();
     let mut parent_cube = commands
         .spawn((
             PbrBundle {
@@ -196,14 +205,13 @@ fn setup(
             // RigidBody::Dynamic,
             Rotation(parent.rotation),
             Position(parent.position),
-            parent.collider()
+            parent.collider(),
         ))
         .id();
 
     let density = 1.0;
     for (child, (p1, p2)) in make_snake(3, &parent) {
-
-        let color : Color = *pinks.choose(&mut rng).unwrap();
+        let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
                 PbrBundle {
@@ -229,10 +237,9 @@ fn setup(
                 .with_local_anchor_1(p1)
                 .with_local_anchor_2(p2)
                 .with_aligned_axis(Vector::Z)
-                .with_angle_limits(-FRAC_PI_3, FRAC_PI_3)
-                // .with_linear_velocity_damping(0.1)
-                // .with_angular_velocity_damping(1.0)
-                // .with_compliance(1.0 / 1000.0),
+                .with_angle_limits(-FRAC_PI_3, FRAC_PI_3), // .with_linear_velocity_damping(0.1)
+                                                           // .with_angular_velocity_damping(1.0)
+                                                           // .with_compliance(1.0 / 1000.0),
         );
         let a1 = parent.extents * Vector::new(0.5, 0.5, 0.0);
         let a2 = child.extents * Vector::new(0.5, 0.5, 0.0);
@@ -241,8 +248,7 @@ fn setup(
         // println!("length {length}");
 
         let length_scale = 0.4;
-        commands.spawn(
-            (
+        commands.spawn((
             DistanceJoint::new(parent_cube, child_cube)
                 .with_local_anchor_1(a1)
                 .with_local_anchor_2(a2)
@@ -254,14 +260,12 @@ fn setup(
             SpringOscillator {
                 freq: 1.0,
                 min: rest_length * length_scale,
-                max: rest_length * (1.0 + length_scale)
-            }
-            )
-        );
+                max: rest_length * (1.0 + length_scale),
+            },
+        ));
         parent = child;
         parent_cube = child_cube;
     }
-
 
     // Light
     commands.spawn(PointLightBundle {
@@ -275,9 +279,11 @@ fn setup(
     });
 
     // Camera
-    commands.spawn((Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    },
-    PanOrbitCamera::default()));
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        PanOrbitCamera::default(),
+    ));
 }
