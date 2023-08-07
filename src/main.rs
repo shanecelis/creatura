@@ -5,6 +5,12 @@ use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
 use std::f32::consts::{FRAC_PI_3, PI, TAU};
 
+#[derive(PhysicsLayer)]
+enum Layer {
+    Ground,
+    Part,
+}
+
 fn main() {
     let mut app = App::new();
 
@@ -169,6 +175,7 @@ fn setup(
             material: materials.add(ground_color.into()),
             ..default()
         },
+        CollisionLayers::new([Layer::Ground], [Layer::Part]),
         RigidBody::Static,
         Collider::cuboid(10., 0.1, 10.),
     ));
@@ -201,16 +208,18 @@ fn setup(
                 material: materials.add(color.into()),
                 ..default()
             },
-            RigidBody::Static,
-            // RigidBody::Dynamic,
+            // RigidBody::Static,
+            RigidBody::Dynamic,
             Rotation(parent.rotation),
             Position(parent.position),
             parent.collider(),
+
+            CollisionLayers::new([Layer::Part], [Layer::Ground]),
         ))
         .id();
 
     let density = 1.0;
-    for (child, (p1, p2)) in make_snake(3, &parent) {
+    for (child, (p1, p2)) in make_snake(4, &parent) {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
@@ -228,7 +237,8 @@ fn setup(
                 Position(child.position()),
                 MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
                 // c,
-                // child.collider()
+                child.collider(),
+                CollisionLayers::new([Layer::Part], [Layer::Ground]),
             ))
             .id();
 
