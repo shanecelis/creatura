@@ -2289,7 +2289,8 @@ dependencies = [
  "bevy_panorbit_camera",
  "bevy_toon_shader",
  "bevy_xpbd_3d",
- "parry3d",
+ "nalgebra",
+ "parry3d-f64",
  "rand",
 ]
 

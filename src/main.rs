@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
+use parry3d_f64 as parry3d;
 use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
-use std::f32::consts::{FRAC_PI_3, PI, TAU};
+use std::f64::consts::{FRAC_PI_3, PI, TAU};
+use nalgebra::point;
 
 #[derive(PhysicsLayer)]
 enum Layer {
@@ -27,7 +29,7 @@ fn main() {
 }
 
 fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
-    let seconds = time.elapsed_seconds();
+    let seconds = time.elapsed_seconds_f64();
     for (mut joint, oscillator) in &mut joints {
         joint.rest_length = (oscillator.max - oscillator.min)
             * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
@@ -42,21 +44,21 @@ fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
 
 #[derive(Component, Debug)]
 struct SpringOscillator {
-    freq: f32,
-    min: f32,
-    max: f32,
+    freq: Scalar,
+    min: Scalar,
+    max: Scalar,
 }
 
 #[derive(Clone, Debug)]
 struct Part {
     extents: Vector3,
     position: Vector3,
-    rotation: Quat,
+    rotation: Quaternion,
 }
 
 impl Part {
     fn shape(&self) -> shape::Box {
-        let v = self.extents;
+        let v = self.extents.as_f32();
         shape::Box::new(v[0], v[1], v[2])
     }
 
@@ -65,40 +67,54 @@ impl Part {
         Collider::cuboid(v[0], v[1], v[2])
     }
 
-    fn volume(&self) -> f32 {
+    fn volume(&self) -> Scalar {
         let v = self.extents;
         v.x * v.y * v.z
     }
-    fn to_local(&self, point: Vector3) -> Vector3 {
-        Transform::from_translation(self.position)
-            .with_rotation(self.rotation)
-            .compute_matrix()
-            .inverse()
-            .transform_point3(point)
-    }
 
     fn from_local(&self, point: Vector3) -> Vector3 {
-        Transform::from_translation(self.position)
-            .with_rotation(self.rotation)
-            // .compute_matrix()
+
+        make_isometry(self.position, &Rotation(self.rotation))
             // .inverse()
-            .transform_point(point)
+            // .absolute_transform_vector(point)
+            // .transform_point(point.into())
+            .transform_point(&point![ point.x, point.y, point.z ]).into()
+        // Transform::from_translation(self.position.as_f32())
+        //     .with_rotation(self.rotation.as_f32())
+        //     // .compute_matrix()
+        //     // .inverse()
+        //     .transform_point(point.as_f32()).into()
     }
 }
 
 trait Stampable {
     fn position(&self) -> Vector3;
-    fn rotation(&self) -> Quat;
+    fn rotation(&self) -> Quaternion;
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)>;
     fn cast_to(&self, point: Vector3) -> Option<Vector3>;
+    fn to_local(&self, point: Vector3) -> Vector3;
 }
 
 impl Stampable for Part {
     fn position(&self) -> Vector3 {
         self.position
     }
-    fn rotation(&self) -> Quat {
+    fn rotation(&self) -> Quaternion {
         self.rotation
+    }
+
+    fn to_local(&self, point: Vector3) -> Vector3 {
+        // FIXME: Reconsider using Isometry here.
+        make_isometry(self.position, &Rotation(self.rotation))
+            .inverse()
+            // .absolute_transform_vector(point)
+            // .transform_point(point.into())
+            .transform_point(&point![ point.x, point.y, point.z ]).into()
+        // Transform::from_translation(self.position.as_f32())
+        //     .with_rotation(self.rotation.as_f32())
+        //     .compute_matrix()
+        //     .inverse()
+        //     .transform_point3(point.as_f32()).into()
     }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
@@ -109,16 +125,18 @@ impl Stampable for Part {
                 // println!("i1 {intersect1} i2 {intersect2}");
                 // let p1 = intersect1;
                 // let p2 = intersect2;
-                let p1 = Transform::from_translation(onto.position())
-                    .with_rotation(onto.rotation())
-                    .compute_matrix()
-                    .inverse()
-                    .transform_point3(intersect1);
-                let p2 = Transform::from_translation(self.position)
-                    .with_rotation(self.rotation)
-                    .compute_matrix()
-                    .inverse()
-                    .transform_point3(intersect2);
+                let p1 = onto.to_local(intersect1);
+                let p2 = self.to_local(intersect2);
+                // let p1 = Transform::from_translation(onto.position())
+                //     .with_rotation(onto.rotation())
+                //     .compute_matrix()
+                //     .inverse()
+                //     .transform_point3(intersect1);
+                // let p2 = Transform::from_translation(self.position)
+                //     .with_rotation(self.rotation)
+                //     .compute_matrix()
+                //     .inverse()
+                //     .transform_point3(intersect2);
                 // println!("p1 {p1} p2 {p2}");
                 self.position -= delta;
                 return Some((p1, p2));
@@ -139,7 +157,7 @@ impl Stampable for Part {
     }
 }
 
-fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vec3, Vec3))> {
+fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     let mut results = Vec::new();
     let mut parent = parent.clone();
     for i in 0..n {
@@ -183,13 +201,13 @@ fn setup(
     let mut parent = Part {
         extents: Vector::new(1., 1., 1.),
         position: Vector::Y,
-        rotation: Quat::IDENTITY,
+        rotation: Quaternion::IDENTITY,
     };
     let p = Vector3::new(1., 2., 1.);
     let mut child = Part {
         extents: Vector::new(0.5, 0.5, 0.5),
         position: p,
-        rotation: Quat::IDENTITY,
+        rotation: Quaternion::IDENTITY,
     };
     let _ = child.stamp(&parent);
 
