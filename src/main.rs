@@ -107,7 +107,7 @@ impl Stampable for Part {
                     .compute_matrix()
                     .inverse()
                     .transform_point3(intersect2);
-                println!("p1 {p1} p2 {p2}");
+                // println!("p1 {p1} p2 {p2}");
                 self.position -= delta;
                 return Some((p1, p2));
             }
@@ -152,7 +152,7 @@ fn setup(
 
     let mut rng = rand::thread_rng();
     let ground_color = Color::rgb_u8(226, 199, 184);
-    // Spawn a static cube and a dynamic cube that is outside of the rest length.
+    // Ground
     commands
         .spawn((
             PbrBundle {
@@ -183,6 +183,7 @@ fn setup(
         Color::rgb_u8(254, 134, 212),
         ];
 
+    // Root cube
     let color : Color = *pinks.choose(&mut rng).unwrap();
     let mut parent_cube = commands
         .spawn((
@@ -236,24 +237,24 @@ fn setup(
         let a1 = parent.extents * Vector::new(0.5, 0.5, 0.0);
         let a2 = child.extents * Vector::new(0.5, 0.5, 0.0);
 
-        let length = (parent.from_local(a1) - child.from_local(a2)).length();
-        println!("length {length}");
+        let rest_length = (parent.from_local(a1) - child.from_local(a2)).length();
+        // println!("length {length}");
 
-        let scale = 0.4;
+        let length_scale = 0.4;
         commands.spawn(
             (
             DistanceJoint::new(parent_cube, child_cube)
                 .with_local_anchor_1(a1)
                 .with_local_anchor_2(a2)
-                .with_rest_length(length)
+                .with_rest_length(rest_length)
                 // .with_limits(0.75, 2.5)
                 // .with_linear_velocity_damping(0.1)
                 // .with_angular_velocity_damping(1.0)
                 .with_compliance(1.0 / 100.0),
             SpringOscillator {
                 freq: 1.0,
-                min: length * scale,
-                max: length * (1.0 + scale)
+                min: rest_length * length_scale,
+                max: rest_length * (1.0 + length_scale)
             }
             )
         );
@@ -261,97 +262,6 @@ fn setup(
         parent_cube = child_cube;
     }
 
-        // let (collider2, trans2) = child.into();
-        // let joint = SpringJoint { k: 500., length: 2.,
-        //                                         point1: p1,
-        //                          body2: parent, point2: p2 };
-        // parent = commands
-        //     .spawn(RigidBody::Dynamic)
-        //     .insert(collider2)
-        //     // .insert(ImpulseJoint::new(parent, spherical_joint(p1, p2)))
-        //     .insert(ExternalForce::default())
-        //     .insert(PickableBundle::default())
-        //     .insert(Sleeping::disabled())
-        //     .insert(PbrBundle {
-        //         // The collider sizes and the mesh sizes are not the same units. Eek.
-        //         mesh: meshes.add(shape::Cube { size: 2.0 }.into()),
-        //         // material: materials.add(Color::rgb(0.8, 0.3, 0.2).into()),
-        //         material: materials.add(grey(0.7).into()),
-        //         transform: trans2,
-        //         ..default()
-        //     })
-        //     // .insert(TransformBundle::from(trans2))
-        //     .id();
-        // if first {
-        //     commands.entity(parent).insert(joint);
-        //     first = false;
-        // }
-    // }
-
-    // This doesn't work because commands haven't actually run yet.
-    // if let Some(hit) = spatial_query.cast_ray(p,
-    //                                           Vector::NEG_X,
-    //                                           100.,
-    //                                           true,
-    //                                           SpatialQueryFilter::default()) {
-    //     println!("First hit: {:?}", hit);
-    // } else {
-    //     println!("No hit");
-    // }
-    //
-
-
-    // let a = Collider::cuboid(1., 1., 1.);
-    // let r = parry3d::query::details::Ray::new(Vector3::new(0.,0.,0.).into(), Vector3::NEG_X.into());
-    // let m = make_isometry(Vector3::ZERO, &Rotation(Quat::IDENTITY));
-    // if let Some(hit) = a.cast_ray_and_get_normal(&m,
-    //                                              &r,
-    //                  100.,
-    //                  false) {
-    //     println!("First hit: {:?}", hit);
-    // } else {
-    //     println!("No hit");
-    // }
-
-    // let child_cube = commands
-    //     .spawn((
-    //         PbrBundle {
-    //             mesh: meshes.add(Mesh::from(child.shape())),
-    //             material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-    //             ..default()
-    //         },
-    //         RigidBody::Static,
-    //         // RigidBody::Dynamic,
-    //         Position(child.position),
-    //         MassPropertiesBundle::new_computed(&child.collider(), 1.0),
-    //         // c,
-    //         child.collider()
-    //     ))
-    //     .id();
-
-    // Add a distance joint to keep the cubes at a certain distance from each other.
-    // The dynamic cube should bounce like it's on a spring.
-    // commands.spawn(
-    //     RevoluteJoint::new(parent_cube, child_cube)
-    //         .with_local_anchor_1(0.5 * Vector::X)
-    //         .with_local_anchor_2(-0.25 * Vector::X)
-    //         .with_aligned_axis(Vector::Z)
-    //         .with_angle_limits(-FRAC_PI_3, FRAC_PI_3)
-    //         // .with_linear_velocity_damping(0.1)
-    //         // .with_angular_velocity_damping(1.0)
-    //         .with_compliance(1.0 / 1000.0),
-    // );
-
-    // commands.spawn(
-    //     DistanceJoint::new(parent_cube, child_cube)
-    //         .with_local_anchor_1(Vector::new(0.5, 0.5, 0.0))
-    //         .with_local_anchor_2(Vector::new(0.25, 0.25, 0.0))
-    //         .with_rest_length(0.5)
-    //         // .with_limits(0.75, 2.5)
-    //         // .with_linear_velocity_damping(0.1)
-    //         // .with_angular_velocity_damping(1.0)
-    //         .with_compliance(1.0 / 100.0),
-    // );
 
     // Light
     commands.spawn(PointLightBundle {
