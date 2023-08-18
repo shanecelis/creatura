@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude::{*, shape};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
 use parry3d_f64 as parry3d;
@@ -6,6 +6,7 @@ use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
 use std::f64::consts::{FRAC_PI_4, FRAC_PI_3, PI, TAU};
 use nalgebra::point;
+use bevy_fundsp::prelude::*;
 
 /// Use an even and odd part scheme so that the root part is even. Every part
 /// successively attached is odd then even then odd. Then we don't allow even
@@ -19,19 +20,51 @@ enum Layer {
     PartOdd,
 }
 
+fn white_noise() -> impl AudioUnit32 {
+    // white() >> split::<U2>() * 0.2
+    dc(50.0) >> sine() * 0.5
+}
+
+fn white_noise_mono() -> impl AudioUnit32 {
+    // white() * 0.2
+    dc(50.0) >> sine() * 0.5
+}
+
 fn main() {
     let mut app = App::new();
 
     let blue = Color::rgb_u8(27, 174, 228);
     // Add plugins and startup system
     app.add_plugins((DefaultPlugins, PhysicsPlugins::default()))
+        .add_plugins(DspPlugin::default())
         .insert_resource(ClearColor(blue))
+        .add_dsp_source(white_noise, SourceType::Dynamic)
         .add_systems(Startup, setup)
+        .add_systems(PostStartup, play_noise)
         .add_systems(Update, bevy::window::close_on_esc)
-        .add_systems(Update, oscillate_motors)
+        // .add_systems(Update, oscillate_motors)
+        .add_systems(Update, flex_muscles)
         .add_plugin(PanOrbitCameraPlugin);
     // Run the app
     app.run();
+}
+
+fn play_noise(
+    mut commands: Commands,
+    mut assets: ResMut<Assets<DspSource>>,
+    dsp_manager: Res<DspManager>,
+) {
+    let source = assets.add(
+        dsp_manager
+            .get_graph(white_noise)
+            .unwrap_or_else(|| panic!("DSP source not found!"))
+            // HACK: I'm cloning here and that may be wrong.
+            .clone(),
+    );
+    commands.spawn(AudioSourceBundle {
+        source,
+        ..default()
+    });
 }
 
 fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
@@ -43,6 +76,31 @@ fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &Spr
     }
 }
 
+// fn flex_muscles<T: Iterator + Send + Sync + 'static>(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &mut MuscleIterator<f64>)>) {
+// fn flex_muscles<T: Iterator<Item = [f32; 2]> + Send + Sync + 'static>(time: Res<Time>,
+//                                                                       mut joints: Query<(&mut DistanceJoint, &mut MuscleIterator<T>)>) {
+//     for (mut joint, mut muscle) in &mut joints {
+//         if let Some(l) = muscle.iter.next() {
+//             joint.rest_length = l[0] as f64;
+//         }
+//     }
+// }
+fn flex_muscles(time: Res<Time>,
+                mut joints: Query<(&mut DistanceJoint, &mut MuscleUnit)>) {
+    let input : [f32; 0] = [];
+    let mut output : [f32; 1] = [0.];
+
+    for (mut joint, mut muscle) in &mut joints {
+        debug_assert!(muscle.unit.inputs() == 0);
+        debug_assert!(muscle.unit.outputs() >= 1);
+        muscle.unit.tick(&input, &mut output);
+        let length = muscle.min.lerp(muscle.max, output[0] as f64 / 2.0 + 0.5);
+        // let length = output[0].abs() as f64;
+        println!("Setting muscle to {length}");
+        joint.rest_length = length;
+    }
+}
+
 // Copied from xpbd. It's only pub(crate) there.
 fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
     Isometry::<Scalar>::new(pos.into(), rot.to_scaled_axis().into())
@@ -51,6 +109,20 @@ fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
 #[derive(Component, Debug)]
 struct SpringOscillator {
     freq: Scalar,
+    min: Scalar,
+    max: Scalar,
+}
+
+// #[derive(Component, Debug)]
+// struct MuscleIterator<T : Iterator<Item = [f32; 2]>> {
+//     iter: T,
+// }
+
+
+// #[derive(Component, Debug)]
+#[derive(Component)]
+struct MuscleUnit {
+    unit : Box<dyn AudioUnit32>,
     min: Scalar,
     max: Scalar,
 }
@@ -158,7 +230,9 @@ fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut dsp_sources: ResMut<Assets<DspSource>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    dsp_manager: Res<DspManager>,
 ) {
     let cube_mesh = PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -273,7 +347,18 @@ fn setup(
         let rest_length = (parent.from_local(a1) - child.from_local(a2)).length();
 
         let length_scale = 0.4;
-        commands.spawn((
+
+        let sample_rate = 44_100.0; // This should come from somewhere else.
+        // let dsp = DspSource::new(white_noise_mono,
+        //                          sample_rate,
+        //                          SourceType::Dynamic);
+
+        let dsp = dsp_manager
+                    .get_graph(white_noise)
+                    .unwrap()
+                    // HACK: This doesn't feel right.
+                    .clone();
+        commands.spawn(
             DistanceJoint::new(parent_cube, child_cube)
                 .with_local_anchor_1(a1)
                 .with_local_anchor_2(a2)
@@ -281,13 +366,23 @@ fn setup(
                 // .with_limits(0.75, 2.5)
                 // .with_linear_velocity_damping(0.1)
                 // .with_angular_velocity_damping(1.0)
-                .with_compliance(1.0 / 100.0),
-            SpringOscillator {
-                freq: 1.0,
+                .with_compliance(1.0 / 100.0))
+            .insert(
+            MuscleUnit {
+                // iter: dsp_sources.add(dsp)
+                // iter: dsp.into_iter()
+                unit: Box::new({ let mut unit = white_noise_mono();
+                                 unit.set_sample_rate(1000.0);
+                                 unit}),
                 min: rest_length * length_scale,
                 max: rest_length * (1.0 + length_scale),
-            },
-        ));
+            }
+            // SpringOscillator {
+            //     freq: 1.0,
+            //     min: rest_length * length_scale,
+            //     max: rest_length * (1.0 + length_scale),
+            // },
+        );
         parent = child;
         parent_cube = child_cube;
     }
