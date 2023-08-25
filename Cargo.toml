@@ -14,3 +14,7 @@ bevy_xpbd_3d = { version = "0.2.0", path = "../bevy_xpbd/crates/bevy_xpbd_3d", d
 nalgebra = "0.32.3"
 parry3d-f64 = "0.13.5"
 rand = "0.8.5"
+
+[[bin]]
+name = "main"
+doc = false
