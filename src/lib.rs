@@ -150,13 +150,13 @@ impl Stampable for Part {
     }
 }
 
-pub fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
+pub fn make_snake(n: u8, scale: f64, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     let mut results = Vec::new();
     let mut parent = parent.clone();
     for _ in 0..n {
         let mut child: Part = parent.clone();
         child.position += 5. * Vector3::X;
-        child.extents *= 0.6;
+        child.extents *= scale;//0.6;
         if let Some((p1, p2)) = child.stamp(&parent) {
             results.push((child.clone(), (p1, p2)));
         }

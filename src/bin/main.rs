@@ -123,7 +123,8 @@ fn setup(
         .id();
 
     let density = 1.0;
-    for (i, (child, (p1, p2))) in make_snake(4, &parent).into_iter().enumerate() {
+    let scaling = 0.6;
+    for (i, (child, (p1, p2))) in make_snake(6, scaling, &parent).into_iter().enumerate() {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
