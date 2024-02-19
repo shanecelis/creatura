@@ -13,6 +13,7 @@ bevy_toon_shader = "0.2.0"
 bevy_xpbd_3d = { version = "0.2.0", path = "../bevy_xpbd/crates/bevy_xpbd_3d", default-features = false, features = ["3d", "f64", "collider-from-mesh", "parallel", "debug-plugin"] }
 nalgebra = "0.32.3"
 parry3d-f64 = "0.13.5"
+petgraph = "0.6.4"
 rand = "0.8.5"
 
 [[bin]]
