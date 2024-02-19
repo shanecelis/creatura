@@ -4,39 +4,39 @@ use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
 use parry3d_f64 as parry3d;
 use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
-use std::f64::consts::{FRAC_PI_4, FRAC_PI_3, PI, TAU};
-use nalgebra::point;
-use bevy_fundsp::prelude::*;
+use std::f64::consts::{FRAC_PI_4};//, FRAC_PI_3, PI, TAU};
+// use nalgebra::point;
+// use bevy_fundsp::prelude::*;
 
 use muscley_wusaley::*;
 
-fn white_noise() -> impl AudioUnit32 {
-    // white() >> split::<U2>() * 0.2
-    dc(50.0) >> sine() * 0.5
-}
+// fn white_noise() -> impl AudioUnit32 {
+//     // white() >> split::<U2>() * 0.2
+//     dc(50.0) >> sine() * 0.5
+// }
 
-fn white_noise_mono() -> impl AudioUnit32 {
-    // white() * 0.2
-    dc(50.0) >> sine() * 0.5
-}
+// fn white_noise_mono() -> impl AudioUnit32 {
+//     // white() * 0.2
+//     dc(50.0) >> sine() * 0.5
+// }
 
-fn play_noise(
-    mut commands: Commands,
-    mut assets: ResMut<Assets<DspSource>>,
-    dsp_manager: Res<DspManager>,
-) {
-    let source = assets.add(
-        dsp_manager
-            .get_graph(white_noise)
-            .unwrap_or_else(|| panic!("DSP source not found!"))
-            // HACK: I'm cloning here and that may be wrong.
-            .clone(),
-    );
-    commands.spawn(AudioSourceBundle {
-        source,
-        ..default()
-    });
-}
+// fn play_noise(
+//     mut commands: Commands,
+//     mut assets: ResMut<Assets<DspSource>>,
+//     dsp_manager: Res<DspManager>,
+// ) {
+//     let source = assets.add(
+//         dsp_manager
+//             .get_graph(white_noise)
+//             .unwrap_or_else(|| panic!("DSP source not found!"))
+//             // HACK: I'm cloning here and that may be wrong.
+//             .clone(),
+//     );
+//     commands.spawn(AudioSourceBundle {
+//         source,
+//         ..default()
+//     });
+// }
 
 fn main() {
     let mut app = App::new();
@@ -44,15 +44,15 @@ fn main() {
     let blue = Color::rgb_u8(27, 174, 228);
     // Add plugins and startup system
     app.add_plugins((DefaultPlugins, PhysicsPlugins::default()))
-        .add_plugins(DspPlugin::default())
+        // .add_plugins(DspPlugin::default())
         .insert_resource(ClearColor(blue))
-        .add_dsp_source(white_noise, SourceType::Dynamic)
+        // .add_dsp_source(white_noise, SourceType::Dynamic)
         .add_systems(Startup, setup)
-        .add_systems(PostStartup, play_noise)
+        // .add_systems(PostStartup, play_noise)
         .add_systems(Update, bevy::window::close_on_esc)
-        // .add_systems(Update, oscillate_motors)
-        .add_systems(Update, flex_muscles)
-        .add_plugin(PanOrbitCameraPlugin);
+        .add_systems(Update, oscillate_motors)
+        // .add_systems(Update, graph::flex_muscles)
+        .add_plugins(PanOrbitCameraPlugin);
     // Run the app
     app.run();
 }
@@ -60,9 +60,9 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut dsp_sources: ResMut<Assets<DspSource>>,
+    // mut dsp_sources: ResMut<Assets<DspSource>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    dsp_manager: Res<DspManager>,
+    // dsp_manager: Res<DspManager>,
 ) {
     let cube_mesh = PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -160,14 +160,18 @@ fn setup(
         //                                                    // .with_compliance(1.0 / 1000.0),
         // );
         commands.spawn(
-            SphericalJoint::new(parent_cube, child_cube)
-                .with_swing_axis(Vector::Y)
-                .with_twist_axis(Vector::X)
+            { let mut j = SphericalJoint::new(parent_cube, child_cube)
+                // .with_swing_axis(Vector::Y)
+                // .with_twist_axis(Vector::X)
                 .with_local_anchor_1(p1)
                 .with_local_anchor_2(p2)
                 // .with_aligned_axis(Vector::Z)
                 .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
-                .with_twist_limits(-FRAC_PI_4, FRAC_PI_4), // .with_linear_velocity_damping(0.1)
+                .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
+              j.swing_axis = Vector::Y;
+              j.twist_axis = Vector::X;
+              j
+            }
                                                            // .with_angular_velocity_damping(1.0)
                                                            // .with_compliance(1.0 / 1000.0),
         );
@@ -178,16 +182,16 @@ fn setup(
 
         let length_scale = 0.4;
 
-        let sample_rate = 44_100.0; // This should come from somewhere else.
+        // let sample_rate = 44_100.0; // This should come from somewhere else.
         // let dsp = DspSource::new(white_noise_mono,
         //                          sample_rate,
         //                          SourceType::Dynamic);
 
-        let dsp = dsp_manager
-                    .get_graph(white_noise)
-                    .unwrap()
-                    // HACK: This doesn't feel right.
-                    .clone();
+        // let dsp = dsp_manager
+        //             .get_graph(white_noise)
+        //             .unwrap()
+        //             // HACK: This doesn't feel right.
+        //             .clone();
         commands.spawn(
             DistanceJoint::new(parent_cube, child_cube)
                 .with_local_anchor_1(a1)
@@ -198,20 +202,20 @@ fn setup(
                 // .with_angular_velocity_damping(1.0)
                 .with_compliance(1.0 / 100.0))
             .insert(
-            MuscleUnit {
-                // iter: dsp_sources.add(dsp)
-                // iter: dsp.into_iter()
-                unit: Box::new({ let mut unit = white_noise_mono();
-                                 unit.set_sample_rate(1000.0);
-                                 unit}),
-                min: rest_length * length_scale,
-                max: rest_length * (1.0 + length_scale),
-            }
-            // SpringOscillator {
-            //     freq: 1.0,
+            // MuscleUnit {
+            //     // iter: dsp_sources.add(dsp)
+            //     // iter: dsp.into_iter()
+            //     unit: Box::new({ let mut unit = white_noise_mono();
+            //                      unit.set_sample_rate(1000.0);
+            //                      unit}),
             //     min: rest_length * length_scale,
             //     max: rest_length * (1.0 + length_scale),
-            // },
+            // }
+            SpringOscillator {
+                freq: 1.0,
+                min: rest_length * length_scale,
+                max: rest_length * (1.0 + length_scale),
+            },
         );
         parent = child;
         parent_cube = child_cube;

@@ -1,12 +1,17 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use bevy::prelude::{*, shape};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
+// use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use bevy_xpbd_3d::{math::*, prelude::*, components::Collider};
 use parry3d_f64 as parry3d;
-use parry3d::{math::Isometry, query::*};
-use rand::seq::SliceRandom;
-use std::f64::consts::{FRAC_PI_4, FRAC_PI_3, PI, TAU};
+use parry3d::{math::Isometry};
+// use rand::seq::SliceRandom;
+use std::f64::consts::TAU;
 use nalgebra::point;
-use bevy_fundsp::prelude::*;
+
+#[cfg(feature = "dsp")]
+mod dsp;
+// pub mod graph;
 
 /// Use an even and odd part scheme so that the root part is even. Every part
 /// successively attached is odd then even then odd. Then we don't allow even
@@ -21,37 +26,12 @@ pub enum Layer {
 }
 
 
-fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
+pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
     let seconds = time.elapsed_seconds_f64();
     for (mut joint, oscillator) in &mut joints {
         joint.rest_length = (oscillator.max - oscillator.min)
             * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
             + oscillator.min;
-    }
-}
-
-// fn flex_muscles<T: Iterator + Send + Sync + 'static>(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &mut MuscleIterator<f64>)>) {
-// fn flex_muscles<T: Iterator<Item = [f32; 2]> + Send + Sync + 'static>(time: Res<Time>,
-//                                                                       mut joints: Query<(&mut DistanceJoint, &mut MuscleIterator<T>)>) {
-//     for (mut joint, mut muscle) in &mut joints {
-//         if let Some(l) = muscle.iter.next() {
-//             joint.rest_length = l[0] as f64;
-//         }
-//     }
-// }
-pub fn flex_muscles(time: Res<Time>,
-                mut joints: Query<(&mut DistanceJoint, &mut MuscleUnit)>) {
-    let input : [f32; 0] = [];
-    let mut output : [f32; 1] = [0.];
-
-    for (mut joint, mut muscle) in &mut joints {
-        debug_assert!(muscle.unit.inputs() == 0);
-        debug_assert!(muscle.unit.outputs() >= 1);
-        muscle.unit.tick(&input, &mut output);
-        let length = muscle.min.lerp(muscle.max, output[0] as f64 / 2.0 + 0.5);
-        // let length = output[0].abs() as f64;
-        println!("Setting muscle to {length}");
-        joint.rest_length = length;
     }
 }
 
@@ -61,10 +41,10 @@ fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
 }
 
 #[derive(Component, Debug)]
-struct SpringOscillator {
-    freq: Scalar,
-    min: Scalar,
-    max: Scalar,
+pub struct SpringOscillator {
+    pub freq: Scalar,
+    pub min: Scalar,
+    pub max: Scalar,
 }
 
 // #[derive(Component, Debug)]
@@ -74,18 +54,21 @@ struct SpringOscillator {
 
 
 // #[derive(Component, Debug)]
-#[derive(Component)]
-pub struct MuscleUnit {
-    pub unit : Box<dyn AudioUnit32>,
-    pub min: Scalar,
-    pub max: Scalar,
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct Part {
     pub extents: Vector3,
     pub position: Vector3,
     pub rotation: Quaternion,
+}
+
+impl Default for Part {
+    fn default() -> Self {
+        Self {
+            extents: Vector3::ONE,
+            position: Vector3::ZERO,
+            rotation: Quaternion::IDENTITY
+        }
+    }
 }
 
 impl Part {
@@ -161,6 +144,7 @@ impl Stampable for Part {
         );
         let m = make_isometry(self.position(), &Rotation(self.rotation));
         self.collider()
+            .shape()
             .cast_ray_and_get_normal(&m, &r, 100., false)
             .map(|intersect| r.point_at(intersect.toi).into())
     }
@@ -180,4 +164,23 @@ pub fn make_snake(n: u8, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     }
     results
 }
+#[derive(PartialEq, Clone, Copy)]
+enum PartParity {
+    Even,
+    Odd,
+}
 
+impl PartParity {
+    fn next(&self) -> Self {
+        match self {
+            PartParity::Even => PartParity::Odd,
+            PartParity::Odd  => PartParity::Even,
+        }
+    }
+}
+
+struct PartData {
+    part: Part,
+    id: Option<Entity>,
+    parity: Option<PartParity>
+}

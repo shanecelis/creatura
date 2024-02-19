@@ -28,3 +28,52 @@ fn snake_graph(part_count: u8) -> DiGraph<Part, Edge> {
 
 // fn unfurl_graph(graph: DiGraph<Part, Edge>) -> DiGraph<Part, Edge> {
 // }
+
+pub fn make_graph(graph: &DiGraph<Part,Edge>,
+                  root: petgraph::prelude::NodeIndex<u32>,
+                  mut meshes: ResMut<Assets<Mesh>>,
+                  pbr: PbrBundle,
+                  mut commands: Commands) {
+    let mut graph = graph.map(|i, p| PartData { part: p.clone(), id: None, parity: None }, |i, e| e);
+    let mut dfs = Dfs::new(&graph, root);
+    let density = 1.0;
+    while let Some(nx) = dfs.next(&graph) {
+        let node = &mut graph[nx];
+        let child = node.part;
+
+        if node.parity == None {
+            let mut edges = graph.neighbors_directed(nx, Incoming);
+            while let Some(ex) = edges.next() {
+                node.parity = Some(graph[ex].parity.unwrap().next());
+            }
+        }
+
+        if node.id == None {
+            node.id = Some(commands
+            .spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(child.shape())),
+                    ..pbr
+                },
+                // RigidBody::Static,
+                RigidBody::Dynamic,
+                Position(child.position()),
+                MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
+                // c,
+                child.collider(),
+                if node.parity == Some(PartParity::Even) {
+                    CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven])
+                } else {
+                    CollisionLayers::new([Layer::PartOdd], [Layer::Ground, Layer::PartOdd])
+                },
+            ))
+            .id());
+
+
+        }
+
+        let mut edges = graph.edges_directed(nx, Incoming);
+        while let Some(ex) = edges.next() {
+        }
+    }
+}
