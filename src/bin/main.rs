@@ -1,10 +1,10 @@
-use bevy::prelude::{*, shape};
+use bevy::prelude::{*};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use parry3d_f64 as parry3d;
-use parry3d::{math::Isometry, query::*};
+use avian3d::{math::*, prelude::*};
+use parry3d;
+// use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
-use std::f64::consts::{FRAC_PI_4};//, FRAC_PI_3, PI, TAU};
+use std::f32::consts::{FRAC_PI_4};//, FRAC_PI_3, PI, TAU};
 // use nalgebra::point;
 // use bevy_fundsp::prelude::*;
 
@@ -49,7 +49,7 @@ fn main() {
         // .add_dsp_source(white_noise, SourceType::Dynamic)
         .add_systems(Startup, setup)
         // .add_systems(PostStartup, play_noise)
-        .add_systems(Update, bevy::window::close_on_esc)
+        // .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Update, oscillate_motors)
         // .add_systems(Update, graph::flex_muscles)
         .add_plugins(PanOrbitCameraPlugin);
@@ -65,8 +65,8 @@ fn setup(
     // dsp_manager: Res<DspManager>,
 ) {
     let cube_mesh = PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        mesh: meshes.add(Mesh::from(Cuboid::from_length(1.0))),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
         ..default()
     };
 
@@ -75,8 +75,8 @@ fn setup(
     // Ground
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::new(10., 0.1, 10.))),
-            material: materials.add(ground_color.into()),
+            mesh: meshes.add(Cuboid::new(10., 0.1, 10.)),
+            material: materials.add(ground_color),
             ..default()
         },
         CollisionLayers::new([Layer::Ground], [Layer::Part, Layer::PartEven, Layer::PartOdd]),
@@ -109,7 +109,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(parent.shape())),
-                material: materials.add(color.into()),
+                material: materials.add(color),
                 ..default()
             },
             // RigidBody::Static,
@@ -124,7 +124,7 @@ fn setup(
 
     let density = 1.0;
     let scaling = 0.6;
-    for (i, (child, (p1, p2))) in make_snake(6, scaling, &parent).into_iter().enumerate() {
+    for (i, (child, (p1, p2))) in make_snake(3, scaling, &parent).into_iter().enumerate() {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
@@ -132,7 +132,7 @@ fn setup(
                     mesh: meshes.add(Mesh::from(child.shape())),
                     material: materials.add(StandardMaterial {
                         base_color: color,
-                        emissive: Color::WHITE * 0.1,
+                        // emissive: Color::WHITE.into(),
                         ..default()
                     }),
                     ..default()
@@ -223,13 +223,27 @@ fn setup(
     }
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
+    // commands.spawn(PointLightBundle {
+    //     point_light: PointLight {
+    //         intensity: 1800.0,
+    //         radius: 100.0,
+    //         range: 1000.0,
+    //         shadows_enabled: true,
+    //         ..default()
+    //     },
+    //     transform: Transform::from_xyz(1.0, 8.0, 1.0),
+    //     ..default()
+    // });
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 1000.0,
+            // radius: 100.0,
+            // range: 1000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(1.0, 8.0, 1.0)
+            .looking_at(Vec3::ZERO, Dir3::Y),
         ..default()
     });
 

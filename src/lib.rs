@@ -122,7 +122,7 @@ impl Stampable for Part {
     }
 
     fn to_local(&self, point: Vector3) -> Vector3 {
-        Mat4::from_scale_rotation_translation(self.extents, self.rotation, self.position)
+        Mat4::from_scale_rotation_translation(Vector::ONE, self.rotation, self.position)
             .inverse()
             .transform_point(point).into()
         // make_isometry(self.position, &Rotation(self.rotation))
@@ -145,19 +145,15 @@ impl Stampable for Part {
     }
 
     fn cast_to(&self, point: Vector3) -> Option<Vector3> {
-        let r = parry3d::query::Ray::new(
-            self.position().into(),
-            (point - self.position()).into(),
-        );
-        let m = make_isometry(self.position(), &Rotation(self.rotation));
+        let dir = self.position() - point;
+        // let m = make_isometry(self.position(), &Rotation(self.rotation));
         self.collider()
-            .shape()
-            .cast_ray_and_get_normal(&m, &r, 100., false)
-            .map(|intersect| r.point_at(intersect.toi).into())
+            .cast_ray(self.position(), self.rotation, point, dir, 100., false)
+            .map(|(toi, normal)| dir * toi + point)
     }
 }
 
-pub fn make_snake(n: u8, scale: f64, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
+pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     let mut results = Vec::new();
     let mut parent = parent.clone();
     for _ in 0..n {
