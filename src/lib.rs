@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
-use bevy::prelude::{*, shape};
-// use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy_xpbd_3d::{math::*, prelude::*, components::Collider};
-use parry3d_f64 as parry3d;
-use parry3d::{math::Isometry};
-// use rand::seq::SliceRandom;
-use std::f64::consts::TAU;
-use nalgebra::point;
+use bevy::prelude::*;
+use avian3d::{prelude::*, math::*};
+use parry3d;
+// use parry3d_f64 as parry3d;
+// use parry3d::{math::Isometry};
+// use std::f64::TAU;
+use nalgebra::{point, Isometry};
 
 #[cfg(feature = "dsp")]
 mod dsp;
@@ -27,7 +26,7 @@ pub enum Layer {
 
 
 pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
-    let seconds = time.elapsed_seconds_f64();
+    let seconds = time.elapsed_seconds();
     for (mut joint, oscillator) in &mut joints {
         joint.rest_length = (oscillator.max - oscillator.min)
             * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
@@ -36,9 +35,9 @@ pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, 
 }
 
 // Copied from xpbd. It's only pub(crate) there.
-fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
-    Isometry::<Scalar>::new(pos.into(), rot.to_scaled_axis().into())
-}
+// fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
+//     Isometry::<Scalar>::new(pos.into(), rot.to_scaled_axis().into())
+// }
 
 #[derive(Component, Debug)]
 pub struct SpringOscillator {
@@ -72,9 +71,9 @@ impl Default for Part {
 }
 
 impl Part {
-    pub fn shape(&self) -> shape::Box {
-        let v = self.extents.as_f32();
-        shape::Box::new(v[0], v[1], v[2])
+    pub fn shape(&self) -> Cuboid {
+        let v = self.extents.f32();
+        Cuboid::new(v[0], v[1], v[2])
     }
 
     pub fn collider(&self) -> Collider {
@@ -88,11 +87,16 @@ impl Part {
     }
 
     pub fn from_local(&self, point: Vector3) -> Vector3 {
-        // We prefer this method to bevy's `Transform` because it can be done
-        // with f64 just as easily as f32.
-        make_isometry(self.position, &Rotation(self.rotation))
-            // FIXME: Is there a From or Into defined somewhere?
-            .transform_point(&point![ point.x, point.y, point.z ]).into()
+        ColliderTransform {
+            translation: self.position,
+            rotation: self.rotation.into(),
+            scale: Vector::ONE
+        }.transform_point(point)
+        // // We prefer this method to bevy's `Transform` because it can be done
+        // // with f64 just as easily as f32.
+        // make_isometry(self.position, &Rotation(self.rotation))
+        //     // FIXME: Is there a From or Into defined somewhere?
+        //     .transform_point(&point![ point.x, point.y, point.z ]).into()
     }
 }
 
@@ -118,9 +122,12 @@ impl Stampable for Part {
     }
 
     fn to_local(&self, point: Vector3) -> Vector3 {
-        make_isometry(self.position, &Rotation(self.rotation))
+        Mat4::from_scale_rotation_translation(self.extents, self.rotation, self.position)
             .inverse()
-            .transform_point(&point![ point.x, point.y, point.z ]).into()
+            .transform_point(point).into()
+        // make_isometry(self.position, &Rotation(self.rotation))
+        //     .inverse()
+        //     .transform_point(&point![ point.x, point.y, point.z ]).into()
     }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
@@ -138,7 +145,7 @@ impl Stampable for Part {
     }
 
     fn cast_to(&self, point: Vector3) -> Option<Vector3> {
-        let r = parry3d::query::details::Ray::new(
+        let r = parry3d::query::Ray::new(
             self.position().into(),
             (point - self.position()).into(),
         );
