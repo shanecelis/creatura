@@ -2,7 +2,6 @@
 #![allow(unused_imports)]
 use bevy::prelude::*;
 use avian3d::{prelude::*, math::*};
-use parry3d;
 use nalgebra::{point, Isometry};
 
 #[cfg(feature = "dsp")]
@@ -110,7 +109,7 @@ impl Stampable for Part {
     fn to_local(&self, point: Vector3) -> Vector3 {
         Mat4::from_scale_rotation_translation(Vector::ONE, self.rotation, self.position)
             .inverse()
-            .transform_point(point).into()
+            .transform_point(point)
     }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
@@ -131,19 +130,19 @@ impl Stampable for Part {
         let dir = self.position() - point;
         self.collider()
             .cast_ray(self.position(), self.rotation, point, dir, 100., false)
-            .map(|(toi, normal)| dir * toi + point)
+            .map(|(toi, _normal)| dir * toi + point)
     }
 }
 
 pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     let mut results = Vec::new();
-    let mut parent = parent.clone();
+    let mut parent = *parent;
     for _ in 0..n {
-        let mut child: Part = parent.clone();
+        let mut child: Part = parent;
         child.position += 5. * Vector3::X;
         child.extents *= scale;//0.6;
         if let Some((p1, p2)) = child.stamp(&parent) {
-            results.push((child.clone(), (p1, p2)));
+            results.push((child, (p1, p2)));
         }
         parent = child;
     }

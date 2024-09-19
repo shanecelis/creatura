@@ -1,7 +1,6 @@
 use bevy::prelude::{*};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use avian3d::{math::*, prelude::*};
-use parry3d;
 use rand::seq::SliceRandom;
 use std::f32::consts::{FRAC_PI_4};//, FRAC_PI_3, PI, TAU};
 
@@ -38,7 +37,7 @@ use muscley_wusaley::*;
 fn main() {
     let mut app = App::new();
 
-    let blue = Color::rgb_u8(27, 174, 228);
+    let blue = Color::srgb_u8(27, 174, 228);
     // Add plugins and startup system
     app.add_plugins((DefaultPlugins,
                      PhysicsDebugPlugin::default(),
@@ -63,14 +62,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     // dsp_manager: Res<DspManager>,
 ) {
-    let cube_mesh = PbrBundle {
-        mesh: meshes.add(Mesh::from(Cuboid::from_length(1.0))),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        ..default()
-    };
 
     let mut rng = rand::thread_rng();
-    let ground_color = Color::rgb_u8(226, 199, 184);
+    let ground_color = Color::srgb_u8(226, 199, 184);
     // Ground
     commands.spawn((
         PbrBundle {
@@ -96,11 +90,7 @@ fn setup(
     };
     let _ = child.stamp(&parent);
 
-    let pinks = vec![
-        // Color::rgb_u8(253, 162, 231),
-        Color::rgb_u8(253, 53, 176),
-        // Color::rgb_u8(254, 134, 212),
-    ];
+    let pinks = [Color::srgb_u8(253, 53, 176)];
 
     // Root cube
     let color: Color = *pinks.choose(&mut rng).unwrap();
