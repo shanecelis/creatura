@@ -2,11 +2,8 @@ use bevy::prelude::{*};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use avian3d::{math::*, prelude::*};
 use parry3d;
-// use parry3d::{math::Isometry, query::*};
 use rand::seq::SliceRandom;
 use std::f32::consts::{FRAC_PI_4};//, FRAC_PI_3, PI, TAU};
-// use nalgebra::point;
-// use bevy_fundsp::prelude::*;
 
 use muscley_wusaley::*;
 

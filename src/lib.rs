@@ -3,9 +3,6 @@
 use bevy::prelude::*;
 use avian3d::{prelude::*, math::*};
 use parry3d;
-// use parry3d_f64 as parry3d;
-// use parry3d::{math::Isometry};
-// use std::f64::TAU;
 use nalgebra::{point, Isometry};
 
 #[cfg(feature = "dsp")]
@@ -34,11 +31,6 @@ pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, 
     }
 }
 
-// Copied from xpbd. It's only pub(crate) there.
-// fn make_isometry(pos: Vector, rot: &Rotation) -> Isometry<Scalar> {
-//     Isometry::<Scalar>::new(pos.into(), rot.to_scaled_axis().into())
-// }
-
 #[derive(Component, Debug)]
 pub struct SpringOscillator {
     pub freq: Scalar,
@@ -52,7 +44,6 @@ pub struct SpringOscillator {
 // }
 
 
-// #[derive(Component, Debug)]
 #[derive(Clone, Debug, Copy)]
 pub struct Part {
     pub extents: Vector3,
@@ -92,11 +83,6 @@ impl Part {
             rotation: self.rotation.into(),
             scale: Vector::ONE
         }.transform_point(point)
-        // // We prefer this method to bevy's `Transform` because it can be done
-        // // with f64 just as easily as f32.
-        // make_isometry(self.position, &Rotation(self.rotation))
-        //     // FIXME: Is there a From or Into defined somewhere?
-        //     .transform_point(&point![ point.x, point.y, point.z ]).into()
     }
 }
 
@@ -125,9 +111,6 @@ impl Stampable for Part {
         Mat4::from_scale_rotation_translation(Vector::ONE, self.rotation, self.position)
             .inverse()
             .transform_point(point).into()
-        // make_isometry(self.position, &Rotation(self.rotation))
-        //     .inverse()
-        //     .transform_point(&point![ point.x, point.y, point.z ]).into()
     }
 
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
@@ -146,7 +129,6 @@ impl Stampable for Part {
 
     fn cast_to(&self, point: Vector3) -> Option<Vector3> {
         let dir = self.position() - point;
-        // let m = make_isometry(self.position(), &Rotation(self.rotation));
         self.collider()
             .cast_ray(self.position(), self.rotation, point, dir, 100., false)
             .map(|(toi, normal)| dir * toi + point)
