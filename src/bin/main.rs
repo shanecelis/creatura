@@ -43,7 +43,9 @@ fn main() {
 
     let blue = Color::rgb_u8(27, 174, 228);
     // Add plugins and startup system
-    app.add_plugins((DefaultPlugins, PhysicsPlugins::default()))
+    app.add_plugins((DefaultPlugins,
+                     PhysicsDebugPlugin::default(),
+                     PhysicsPlugins::default()))
         // .add_plugins(DspPlugin::default())
         .insert_resource(ClearColor(blue))
         // .add_dsp_source(white_noise, SourceType::Dynamic)
@@ -124,7 +126,7 @@ fn setup(
 
     let density = 1.0;
     let scaling = 0.6;
-    for (i, (child, (p1, p2))) in make_snake(3, scaling, &parent).into_iter().enumerate() {
+    for (i, (child, (p1, p2))) in make_snake(6, scaling, &parent).into_iter().enumerate() {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
