@@ -41,15 +41,16 @@ fn main() {
     // Add plugins and startup system
     app.add_plugins((DefaultPlugins,
                      PhysicsDebugPlugin::default(),
-                     PhysicsPlugins::default()))
+                     PhysicsPlugins::default(),
+                     plugin))
         // .add_plugins(DspPlugin::default())
         .insert_resource(ClearColor(blue))
         // .add_dsp_source(white_noise, SourceType::Dynamic)
         .add_systems(Startup, setup)
         // .add_systems(PostStartup, play_noise)
         // .add_systems(Update, bevy::window::close_on_esc)
-        .add_systems(Update, oscillate_motors)
-        .add_systems(FixedUpdate, sync_muscles)
+        // .add_systems(Update, oscillate_motors)
+        // .add_systems(FixedUpdate, sync_muscles)
         // .add_systems(Update, graph::flex_muscles)
         .add_plugins(PanOrbitCameraPlugin);
     // Run the app
@@ -114,6 +115,7 @@ fn setup(
 
     let density = 1.0;
     let scaling = 0.6;
+    let mut muscles = vec![];
     for (i, (child, (p1, p2))) in make_snake(6, scaling, &parent).into_iter().enumerate() {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
@@ -183,7 +185,7 @@ fn setup(
         //             .unwrap()
         //             // HACK: This doesn't feel right.
         //             .clone();
-        commands.spawn(
+        let muscle_id = commands.spawn(
             DistanceJoint::new(parent_cube, child_cube)
                 .with_local_anchor_1(a1)
                 .with_local_anchor_2(a2)
@@ -202,15 +204,25 @@ fn setup(
             //     min: rest_length * length_scale,
             //     max: rest_length * (1.0 + length_scale),
             // }
-            SpringOscillator {
-                freq: 1.0,
-                min: rest_length * length_scale,
-                max: rest_length * (1.0 + length_scale),
-            },
-        );
+
+            // SpringOscillator {
+            //     freq: 1.0,
+            //     min: rest_length * length_scale,
+            //     max: rest_length * (1.0 + length_scale),
+            // },
+
+            Muscle::default()
+        ).id();
+        muscles.push(muscle_id);
         parent = child;
         parent_cube = child_cube;
     }
+    commands.spawn((NervousSystem {
+        muscles,
+        sensors: vec![]
+    },
+                    KeyboardBrain
+    ));
 
     // Light
     commands.spawn(DirectionalLightBundle {

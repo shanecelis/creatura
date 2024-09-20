@@ -25,11 +25,18 @@ pub struct Sensor {
     pub value: Scalar,
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Muscle {
     pub value: Scalar,
-    pub min: Scalar,
-    pub max: Scalar,
+    // pub min: Scalar,
+    // pub max: Scalar,
+}
+
+pub fn plugin(app: &mut App) {
+    app
+        .add_systems(Update, keyboard_brain)
+        .add_systems(FixedUpdate, sync_muscles)
+        ;
 }
 
 pub fn sync_muscles(mut joints: Query<(&mut DistanceJoint, &Muscle), Changed<Muscle>>) {
@@ -47,8 +54,42 @@ pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, 
     }
 }
 
+#[derive(Component)]
+pub struct KeyboardBrain;
+
+pub fn keyboard_brain(
+    time: Res<Time>,
+    input: Res<ButtonInput<KeyCode>>,
+    nervous_systems: Query<&NervousSystem, With<KeyboardBrain>>,
+    mut joints: Query<&mut Muscle>) {
+    use KeyCode::*;
+    let keys = [[KeyQ, KeyA, KeyZ],
+                [KeyW, KeyS, KeyX],
+                [KeyE, KeyD, KeyC],
+                [KeyR, KeyF, KeyV],
+    ];
+    let delta = 1.0;
+    for nervous_system in &nervous_systems {
+        let muscles = &nervous_system.muscles;
+        for i in 0..muscles.len().min(keys.len()) {
+            if let Ok(mut muscle) = joints.get_mut(muscles[i]) {
+                if input.pressed(keys[i][0]) {
+                    muscle.value += delta * time.delta_seconds();
+                } else if input.pressed(keys[i][1]) {
+                    muscle.value = 0.0;
+                } else if input.pressed(keys[i][2]) {
+                    muscle.value -= delta * time.delta_seconds();
+                }
+            }
+        }
+    }
+
+}
+
+#[derive(Component)]
 pub struct NervousSystem {
-    muscles: Vec<Entity>,
+    pub sensors: Vec<Entity>,
+    pub muscles: Vec<Entity>,
 }
 
 #[derive(Component, Debug)]
