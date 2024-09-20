@@ -49,6 +49,7 @@ fn main() {
         // .add_systems(PostStartup, play_noise)
         // .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Update, oscillate_motors)
+        .add_systems(FixedUpdate, sync_muscles)
         // .add_systems(Update, graph::flex_muscles)
         .add_plugins(PanOrbitCameraPlugin);
     // Run the app
@@ -212,22 +213,9 @@ fn setup(
     }
 
     // Light
-    // commands.spawn(PointLightBundle {
-    //     point_light: PointLight {
-    //         intensity: 1800.0,
-    //         radius: 100.0,
-    //         range: 1000.0,
-    //         shadows_enabled: true,
-    //         ..default()
-    //     },
-    //     transform: Transform::from_xyz(1.0, 8.0, 1.0),
-    //     ..default()
-    // });
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 1000.0,
-            // radius: 100.0,
-            // range: 1000.0,
             shadows_enabled: true,
             ..default()
         },

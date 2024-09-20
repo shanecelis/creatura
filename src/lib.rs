@@ -20,6 +20,23 @@ pub enum Layer {
     PartOdd,
 }
 
+#[derive(Component)]
+pub struct Sensor {
+    pub value: Scalar,
+}
+
+#[derive(Component)]
+pub struct Muscle {
+    pub value: Scalar,
+    pub min: Scalar,
+    pub max: Scalar,
+}
+
+pub fn sync_muscles(mut joints: Query<(&mut DistanceJoint, &Muscle), Changed<Muscle>>) {
+    for (mut joint, muscle) in &mut joints {
+        joint.rest_length = muscle.value;
+    }
+}
 
 pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
     let seconds = time.elapsed_seconds();
@@ -28,6 +45,10 @@ pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, 
             * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
             + oscillator.min;
     }
+}
+
+pub struct NervousSystem {
+    muscles: Vec<Entity>,
 }
 
 #[derive(Component, Debug)]
