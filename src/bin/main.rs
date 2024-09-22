@@ -33,7 +33,7 @@ use muscley_wusaley::*;
 //         ..default()
 //     });
 // }
-
+//
 fn main() {
     let mut app = App::new();
 
@@ -116,7 +116,7 @@ fn setup(
     let density = 1.0;
     let scaling = 0.6;
     let mut muscles = vec![];
-    for (i, (child, (p1, p2))) in make_snake(6, scaling, &parent).into_iter().enumerate() {
+    for (i, (child, (p1, p2))) in make_snake(3, scaling, &parent).into_iter().enumerate() {
         let color: Color = *pinks.choose(&mut rng).unwrap();
         let child_cube = commands
             .spawn((
@@ -190,7 +190,8 @@ fn setup(
                 .with_local_anchor_1(a1)
                 .with_local_anchor_2(a2)
                 .with_rest_length(rest_length)
-                // .with_limits(0.75, 2.5)
+                // .with_limits(rest_length * length_scale, rest_length * (1.0 + length_scale))
+                // .with_limits(0.0, 2.0 * rest_length)
                 // .with_linear_velocity_damping(0.1)
                 // .with_angular_velocity_damping(1.0)
                 .with_compliance(1.0 / 100.0))
@@ -211,8 +212,9 @@ fn setup(
             //     max: rest_length * (1.0 + length_scale),
             // },
 
-            Muscle::default()
-        ).id();
+            Muscle::default())
+            .insert(MuscleRange { min: 0.0, max: rest_length * 2.0 })
+            .id();
         muscles.push(muscle_id);
         parent = child;
         parent_cube = child_cube;
@@ -221,7 +223,31 @@ fn setup(
         muscles,
         sensors: vec![]
     },
-                    KeyboardBrain
+                    // KeyboardBrain,
+                    // SpringOscillator {
+                    //     freq: 0.5,
+                    //     phase: 0.0,
+                    // },
+                    OscillatorBrain {
+                        oscillators: vec![
+                            SpringOscillator {
+                                freq: 0.5,
+                                phase: 0.0,
+                            },
+                            SpringOscillator {
+                                freq: 0.5,
+                                phase: 0.2,
+                            },
+                            SpringOscillator {
+                                freq: 0.5,
+                                phase: 0.4,
+                            },
+                            SpringOscillator {
+                                freq: 0.5,
+                                phase: 0.6,
+                            },
+                        ]
+                    }
     ));
 
     // Light

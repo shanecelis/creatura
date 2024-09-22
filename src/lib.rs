@@ -7,6 +7,13 @@ use nalgebra::{point, Isometry};
 #[cfg(feature = "dsp")]
 mod dsp;
 // pub mod graph;
+//
+#[derive(Component)]
+pub struct MuscleRange {
+    pub min: Scalar,
+    pub max: Scalar
+}
+
 
 /// Use an even and odd part scheme so that the root part is even. Every part
 /// successively attached is odd then even then odd. Then we don't allow even
@@ -25,34 +32,70 @@ pub struct Sensor {
     pub value: Scalar,
 }
 
+/// Muscle `value` $\in [-1, 1]$.
 #[derive(Component, Default)]
 pub struct Muscle {
     pub value: Scalar,
-    // pub min: Scalar,
-    // pub max: Scalar,
 }
 
 pub fn plugin(app: &mut App) {
     app
         .add_systems(Update, keyboard_brain)
+        .add_systems(Update, oscillate_muscles)
+        .add_systems(Update, oscillate_brain)
         .add_systems(FixedUpdate, sync_muscles)
         ;
 }
 
-pub fn sync_muscles(mut joints: Query<(&mut DistanceJoint, &Muscle), Changed<Muscle>>) {
-    for (mut joint, muscle) in &mut joints {
-        joint.rest_length = muscle.value;
+pub fn sync_muscles(mut joints: Query<(&mut DistanceJoint, &Muscle, Option<&MuscleRange>), Changed<Muscle>>) {
+    for (mut joint, muscle, range) in &mut joints {
+        if let Some(range) = range {
+            let delta = range.max - range.min;
+            joint.rest_length = (muscle.value / 2.0 + 0.5) * delta + range.min ;
+        } else {
+            joint.rest_length = muscle.value;
+        }
     }
 }
 
-pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
+pub fn oscillate_muscles(time: Res<Time>,
+                         nervous_systems: Query<(&NervousSystem, &SpringOscillator)>,
+                         mut muscles: Query<&mut Muscle>) {
     let seconds = time.elapsed_seconds();
-    for (mut joint, oscillator) in &mut joints {
-        joint.rest_length = (oscillator.max - oscillator.min)
-            * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
-            + oscillator.min;
+    for (nervous_system, oscillator) in &nervous_systems {
+        let v = oscillator.eval(seconds);
+        for muscle_id in &nervous_system.muscles {
+            if let Ok(mut muscle) = muscles.get_mut(*muscle_id) {
+                // eprintln!("set muscle value {v}");
+                muscle.value = v;
+            }
+        }
     }
 }
+
+pub fn oscillate_brain(time: Res<Time>,
+                         nervous_systems: Query<(&NervousSystem, &OscillatorBrain)>,
+                         mut muscles: Query<&mut Muscle>) {
+    let seconds = time.elapsed_seconds();
+    for (nervous_system, brain) in &nervous_systems {
+        let n = brain.oscillators.len();
+        for (i, muscle_id) in nervous_system.muscles.iter().enumerate() {
+            if let Ok(mut muscle) = muscles.get_mut(*muscle_id) {
+                let v = brain.oscillators[i % n].eval(seconds);
+                muscle.value = v;
+            }
+        }
+    }
+}
+
+// pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
+//     let seconds = time.elapsed_seconds();
+//     for (mut joint, oscillator) in &mut joints {
+//         joint.rest_length = (oscillator.max - oscillator.min)
+//             * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
+//             + oscillator.min;
+//     }
+// }
 
 #[derive(Component)]
 pub struct KeyboardBrain;
@@ -67,6 +110,8 @@ pub fn keyboard_brain(
                 [KeyW, KeyS, KeyX],
                 [KeyE, KeyD, KeyC],
                 [KeyR, KeyF, KeyV],
+                [KeyT, KeyG, KeyB],
+                [KeyY, KeyJ, KeyN],
     ];
     let delta = 1.0;
     for nervous_system in &nervous_systems {
@@ -75,6 +120,7 @@ pub fn keyboard_brain(
             if let Ok(mut muscle) = joints.get_mut(muscles[i]) {
                 if input.pressed(keys[i][0]) {
                     muscle.value += delta * time.delta_seconds();
+                    eprintln!("set muscle value {}", muscle.value);
                 } else if input.pressed(keys[i][1]) {
                     muscle.value = 0.0;
                 } else if input.pressed(keys[i][2]) {
@@ -83,9 +129,15 @@ pub fn keyboard_brain(
             }
         }
     }
-
 }
 
+
+#[derive(Component)]
+pub struct OscillatorBrain {
+    pub oscillators: Vec<SpringOscillator>,
+}
+
+/// Contain sensors and muscles
 #[derive(Component)]
 pub struct NervousSystem {
     pub sensors: Vec<Entity>,
@@ -95,15 +147,16 @@ pub struct NervousSystem {
 #[derive(Component, Debug)]
 pub struct SpringOscillator {
     pub freq: Scalar,
-    pub min: Scalar,
-    pub max: Scalar,
+    pub phase: Scalar,
+    // pub min: Scalar,
+    // pub max: Scalar,
 }
 
-// #[derive(Component, Debug)]
-// struct MuscleIterator<T : Iterator<Item = [f32; 2]>> {
-//     iter: T,
-// }
-
+impl SpringOscillator {
+    pub fn eval(&self, seconds: f32) -> f32 {
+        (TAU * self.freq * seconds + self.phase).sin()
+    }
+}
 
 #[derive(Clone, Debug, Copy)]
 pub struct Part {
