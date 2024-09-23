@@ -1,15 +1,28 @@
 use petgraph::visit::VisitMap;
 use std::{collections::HashMap, hash::Hash};
 
+/// Allow a node to be visited repeatedly.
+///
+/// By default every node will be visited once, as though
+/// each node `x` were set with `repeat_visit_map.set_visits(x, 1)`.
+///
+/// To repeat the visit two times, `repeat_visit_map.set_visits(x, 2)`.
+///
+/// To avoid a visit, `repeat_visit_map.set_visits(x, 0)`.
 #[derive(Default)]
 struct RepeatVisitMap<N> {
-    counts: HashMap<N, usize>,
+    pub counts: HashMap<N, usize>,
 }
 
 impl<N> RepeatVisitMap<N>
 where
     N: Hash + Eq,
 {
+
+    fn set_visits(&mut self, x: N, count: usize) {
+        self.counts.insert(x, count);
+    }
+
     fn with_visits(mut self, x: N, count: usize) -> Self {
         self.counts.insert(x, count);
         self
