@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use avian3d::{prelude::*, math::*};
 use nalgebra::{point, Isometry};
+mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
 mod dsp;
@@ -259,6 +260,7 @@ impl Stampable for Part {
     }
 }
 
+/// Returns a vector of parts and positions `(parent, child)`.
 pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
     let mut results = Vec::new();
     let mut parent = *parent;
@@ -273,6 +275,7 @@ pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vect
     }
     results
 }
+
 #[derive(PartialEq, Clone, Copy)]
 enum PartParity {
     Even,
