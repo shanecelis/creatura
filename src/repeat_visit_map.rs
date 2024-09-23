@@ -104,8 +104,25 @@ mod test {
         assert_eq!(dfs.next(&g), None);
     }
 
+    /// I have a simple cylic graph with one node 'a' that has a edge connecting
+    /// to itself. I want to be able to do a depth-first traversal, which
+    /// normally would result in visiting 'a' once. However, with
+    /// `RepeatVisitMap` we can say we want to visit it more than once, say two
+    /// times, and petgraph's builtin depth-first search will traverse the edge
+    /// and visit the node 'a' twice.
+    ///
+    /// +--------+
+    /// |        |
+    /// |   a    |- +
+    /// |        |
+    /// +--------+  | 2
+    ///      ^
+    ///      + - - -
+    ///
+    /// (Unfortunately, I just realized I want this property determined by the
+    /// edge not the node. Doh!)
     #[test]
-    fn repeat_visit_map() {
+    fn repeat_visit_map_two() {
         let mut g = Graph::<usize, ()>::new();
         let a = g.add_node(0);
         g.add_edge(a, a, ());
@@ -120,7 +137,7 @@ mod test {
     }
 
     #[test]
-    fn repeat_visit_map_3() {
+    fn repeat_visit_map_three() {
         let mut g = Graph::<usize, ()>::new();
         let a = g.add_node(0);
         g.add_edge(a, a, ());
