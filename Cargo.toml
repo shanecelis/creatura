@@ -22,3 +22,6 @@ rand = "0.8.5"
 [[bin]]
 name = "main"
 doc = false
+
+[patch.crates-io]
+avian3d = { path = '../avian/crates/avian3d' }

@@ -19,9 +19,10 @@ pub struct MuscleRange {
 /// successively attached is odd then even then odd. Then we don't allow even
 /// and odd parts to collide. This is how we can create our own "no collisions
 /// between objects that share a joint."
-#[derive(PhysicsLayer)]
+#[derive(PhysicsLayer, Default)]
 pub enum Layer {
     Ground,
+    #[default]
     Part,
     PartEven,
     PartOdd,
@@ -104,14 +105,17 @@ pub fn keyboard_brain(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     nervous_systems: Query<&NervousSystem, With<KeyboardBrain>>,
-    mut joints: Query<&mut Muscle>) {
+    mut joints: Query<&mut Muscle>,
+    disabled: Query<&JointDisabled>,
+    mut commands: Commands,
+) {
     use KeyCode::*;
-    let keys = [[KeyQ, KeyA, KeyZ],
-                [KeyW, KeyS, KeyX],
-                [KeyE, KeyD, KeyC],
-                [KeyR, KeyF, KeyV],
-                [KeyT, KeyG, KeyB],
-                [KeyY, KeyJ, KeyN],
+    let keys = [[KeyQ, KeyA, KeyZ, Digit1],
+                [KeyW, KeyS, KeyX, Digit2],
+                [KeyE, KeyD, KeyC, Digit3],
+                [KeyR, KeyF, KeyV, Digit4],
+                [KeyT, KeyG, KeyB, Digit5],
+                [KeyY, KeyJ, KeyN, Digit6],
     ];
     let delta = 1.0;
     for nervous_system in &nervous_systems {
@@ -125,6 +129,12 @@ pub fn keyboard_brain(
                     muscle.value = 0.0;
                 } else if input.pressed(keys[i][2]) {
                     muscle.value -= delta * time.delta_seconds();
+                } else if input.just_pressed(keys[i][3]) {
+                    if let Ok(_) = disabled.get(muscles[i]) {
+                        commands.entity(muscles[i]).remove::<JointDisabled>();
+                    } else {
+                        commands.entity(muscles[i]).insert(JointDisabled);
+                    }
                 }
             }
         }

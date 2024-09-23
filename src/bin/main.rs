@@ -223,31 +223,31 @@ fn setup(
         muscles,
         sensors: vec![]
     },
-                    // KeyboardBrain,
+                    KeyboardBrain,
                     // SpringOscillator {
                     //     freq: 0.5,
                     //     phase: 0.0,
                     // },
-                    OscillatorBrain {
-                        oscillators: vec![
-                            SpringOscillator {
-                                freq: 0.5,
-                                phase: 0.0,
-                            },
-                            SpringOscillator {
-                                freq: 0.5,
-                                phase: 0.2,
-                            },
-                            SpringOscillator {
-                                freq: 0.5,
-                                phase: 0.4,
-                            },
-                            SpringOscillator {
-                                freq: 0.5,
-                                phase: 0.6,
-                            },
-                        ]
-                    }
+                    // OscillatorBrain {
+                    //     oscillators: vec![
+                    //         SpringOscillator {
+                    //             freq: 0.5,
+                    //             phase: 0.0,
+                    //         },
+                    //         SpringOscillator {
+                    //             freq: 0.5,
+                    //             phase: 0.2,
+                    //         },
+                    //         SpringOscillator {
+                    //             freq: 0.5,
+                    //             phase: 0.4,
+                    //         },
+                    //         SpringOscillator {
+                    //             freq: 0.5,
+                    //             phase: 0.6,
+                    //         },
+                    //     ]
+                    // }
     ));
 
     // Light
