@@ -6,20 +6,22 @@
 //! We could use a slow DSP to control a creature. And we could speed up the DSP
 //! if we wanted to "listen" to its brain. Yeah, weird idea, I know.
 use bevy::prelude::*;
-use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_fundsp::prelude::*;
+use bevy_xpbd_3d::{math::*, prelude::*};
 
 #[derive(Component)]
 pub struct MuscleUnit {
-    pub unit : Box<dyn AudioUnit32>,
+    pub unit: Box<dyn AudioUnit32>,
     pub min: Scalar,
     pub max: Scalar,
 }
 
-pub fn flex_muscles(//time: Res<Time>,
-                    mut joints: Query<(&mut DistanceJoint, &mut MuscleUnit)>) {
-    let input : [f32; 0] = [];
-    let mut output : [f32; 1] = [0.];
+pub fn flex_muscles(
+    //time: Res<Time>,
+    mut joints: Query<(&mut DistanceJoint, &mut MuscleUnit)>,
+) {
+    let input: [f32; 0] = [];
+    let mut output: [f32; 1] = [0.];
 
     for (mut joint, mut muscle) in &mut joints {
         debug_assert!(muscle.unit.inputs() == 0);

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
-use avian3d::{prelude::*, math::*};
 use nalgebra::{point, Isometry};
 mod repeat_visit_map;
 
@@ -12,9 +12,8 @@ mod dsp;
 #[derive(Component)]
 pub struct MuscleRange {
     pub min: Scalar,
-    pub max: Scalar
+    pub max: Scalar,
 }
-
 
 /// Use an even and odd part scheme so that the root part is even. Every part
 /// successively attached is odd then even then odd. Then we don't allow even
@@ -41,28 +40,30 @@ pub struct Muscle {
 }
 
 pub fn plugin(app: &mut App) {
-    app
-        .add_systems(Update, keyboard_brain)
+    app.add_systems(Update, keyboard_brain)
         .add_systems(Update, oscillate_muscles)
         .add_systems(Update, oscillate_brain)
-        .add_systems(FixedUpdate, sync_muscles)
-        ;
+        .add_systems(FixedUpdate, sync_muscles);
 }
 
-pub fn sync_muscles(mut joints: Query<(&mut DistanceJoint, &Muscle, Option<&MuscleRange>), Changed<Muscle>>) {
+pub fn sync_muscles(
+    mut joints: Query<(&mut DistanceJoint, &Muscle, Option<&MuscleRange>), Changed<Muscle>>,
+) {
     for (mut joint, muscle, range) in &mut joints {
         if let Some(range) = range {
             let delta = range.max - range.min;
-            joint.rest_length = (muscle.value / 2.0 + 0.5) * delta + range.min ;
+            joint.rest_length = (muscle.value / 2.0 + 0.5) * delta + range.min;
         } else {
             joint.rest_length = muscle.value;
         }
     }
 }
 
-pub fn oscillate_muscles(time: Res<Time>,
-                         nervous_systems: Query<(&NervousSystem, &SpringOscillator)>,
-                         mut muscles: Query<&mut Muscle>) {
+pub fn oscillate_muscles(
+    time: Res<Time>,
+    nervous_systems: Query<(&NervousSystem, &SpringOscillator)>,
+    mut muscles: Query<&mut Muscle>,
+) {
     let seconds = time.elapsed_seconds();
     for (nervous_system, oscillator) in &nervous_systems {
         let v = oscillator.eval(seconds);
@@ -75,9 +76,11 @@ pub fn oscillate_muscles(time: Res<Time>,
     }
 }
 
-pub fn oscillate_brain(time: Res<Time>,
-                         nervous_systems: Query<(&NervousSystem, &OscillatorBrain)>,
-                         mut muscles: Query<&mut Muscle>) {
+pub fn oscillate_brain(
+    time: Res<Time>,
+    nervous_systems: Query<(&NervousSystem, &OscillatorBrain)>,
+    mut muscles: Query<&mut Muscle>,
+) {
     let seconds = time.elapsed_seconds();
     for (nervous_system, brain) in &nervous_systems {
         let n = brain.oscillators.len();
@@ -131,7 +134,7 @@ pub fn keyboard_brain(
                 } else if input.pressed(keys[i][2]) {
                     muscle.value -= delta * time.delta_seconds();
                 } else if input.just_pressed(keys[i][3]) {
-                    if let Ok(_) = disabled.get(muscles[i]) {
+                    if disabled.get(muscles[i]).is_ok() {
                         commands.entity(muscles[i]).remove::<JointDisabled>();
                     } else {
                         commands.entity(muscles[i]).insert(JointDisabled);
@@ -141,7 +144,6 @@ pub fn keyboard_brain(
         }
     }
 }
-
 
 #[derive(Component)]
 pub struct OscillatorBrain {
@@ -181,7 +183,7 @@ impl Default for Part {
         Self {
             extents: Vector3::ONE,
             position: Vector3::ZERO,
-            rotation: Quaternion::IDENTITY
+            rotation: Quaternion::IDENTITY,
         }
     }
 }
@@ -206,8 +208,9 @@ impl Part {
         ColliderTransform {
             translation: self.position,
             rotation: self.rotation.into(),
-            scale: Vector::ONE
-        }.transform_point(point)
+            scale: Vector::ONE,
+        }
+        .transform_point(point)
     }
 }
 
@@ -267,7 +270,7 @@ pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vect
     for _ in 0..n {
         let mut child: Part = parent;
         child.position += 5. * Vector3::X;
-        child.extents *= scale;//0.6;
+        child.extents *= scale; //0.6;
         if let Some((p1, p2)) = child.stamp(&parent) {
             results.push((child, (p1, p2)));
         }
@@ -286,7 +289,7 @@ impl PartParity {
     fn next(&self) -> Self {
         match self {
             PartParity::Even => PartParity::Odd,
-            PartParity::Odd  => PartParity::Even,
+            PartParity::Odd => PartParity::Even,
         }
     }
 }
@@ -294,5 +297,5 @@ impl PartParity {
 struct PartData {
     part: Part,
     id: Option<Entity>,
-    parity: Option<PartParity>
+    parity: Option<PartParity>,
 }

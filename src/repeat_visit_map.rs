@@ -1,8 +1,5 @@
-use petgraph::visit::{GraphRef, IntoNodeIdentifiers, Reversed};
-use petgraph::visit::{IntoNeighbors, IntoNeighborsDirected, VisitMap, Visitable};
-use petgraph::Incoming;
-use std::collections::HashMap;
-use std::hash::Hash;
+use petgraph::visit::VisitMap;
+use std::{collections::HashMap, hash::Hash};
 
 #[derive(Default)]
 struct RepeatVisitMap<N> {
@@ -10,26 +7,25 @@ struct RepeatVisitMap<N> {
 }
 
 impl<N> RepeatVisitMap<N>
-where N: Hash + Eq {
+where
+    N: Hash + Eq,
+{
     fn with_visits(mut self, x: N, count: usize) -> Self {
         self.counts.insert(x, count);
         self
-
     }
 }
 
 impl<N> VisitMap<N> for RepeatVisitMap<N>
-where N: Hash + Eq {
+where
+    N: Hash + Eq,
+{
     fn visit(&mut self, x: N) -> bool {
         if let Some(count) = self.counts.get_mut(&x) {
-            if let Some(c) = count.checked_sub(1) {
-                *count = c;
-                return true;
-            }
-            return false;
+            count.checked_sub(1).map(|c| *count = c).is_some()
         } else {
             self.counts.insert(x, 0);
-            return true;
+            true
         }
     }
 
@@ -61,7 +57,7 @@ mod test {
 
         let mut dfs = Dfs {
             stack: vec![a],
-            discovered: RepeatVisitMap::default()
+            discovered: RepeatVisitMap::default(),
         };
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
@@ -75,8 +71,7 @@ mod test {
 
         let mut dfs = Dfs {
             stack: vec![a],
-            discovered: RepeatVisitMap::default()
-                .with_visits(a, 0)
+            discovered: RepeatVisitMap::default().with_visits(a, 0),
         };
         // assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
@@ -90,8 +85,7 @@ mod test {
 
         let mut dfs = Dfs {
             stack: vec![a],
-            discovered: RepeatVisitMap::default()
-                .with_visits(a, 1)
+            discovered: RepeatVisitMap::default().with_visits(a, 1),
         };
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
@@ -105,8 +99,7 @@ mod test {
 
         let mut dfs = Dfs {
             stack: vec![a],
-            discovered: RepeatVisitMap::default()
-                .with_visits(a, 2)
+            discovered: RepeatVisitMap::default().with_visits(a, 2),
         };
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -121,8 +114,7 @@ mod test {
 
         let mut dfs = Dfs {
             stack: vec![a],
-            discovered: RepeatVisitMap::default()
-                .with_visits(a, 3)
+            discovered: RepeatVisitMap::default().with_visits(a, 3),
         };
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -130,4 +122,3 @@ mod test {
         assert_eq!(dfs.next(&g), None);
     }
 }
-

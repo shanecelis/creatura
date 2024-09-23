@@ -1,8 +1,8 @@
-use bevy::prelude::{*};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use avian3d::{math::*, prelude::*};
+use bevy::prelude::*;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::seq::SliceRandom;
-use std::f32::consts::{FRAC_PI_4};//, FRAC_PI_3, PI, TAU};
+use std::f32::consts::FRAC_PI_4; //, FRAC_PI_3, PI, TAU};
 
 use muscley_wusaley::*;
 
@@ -39,20 +39,22 @@ fn main() {
 
     let blue = Color::srgb_u8(27, 174, 228);
     // Add plugins and startup system
-    app.add_plugins((DefaultPlugins,
-                     PhysicsDebugPlugin::default(),
-                     PhysicsPlugins::default(),
-                     plugin))
-        // .add_plugins(DspPlugin::default())
-        .insert_resource(ClearColor(blue))
-        // .add_dsp_source(white_noise, SourceType::Dynamic)
-        .add_systems(Startup, setup)
-        // .add_systems(PostStartup, play_noise)
-        // .add_systems(Update, bevy::window::close_on_esc)
-        // .add_systems(Update, oscillate_motors)
-        // .add_systems(FixedUpdate, sync_muscles)
-        // .add_systems(Update, graph::flex_muscles)
-        .add_plugins(PanOrbitCameraPlugin);
+    app.add_plugins((
+        DefaultPlugins,
+        PhysicsDebugPlugin::default(),
+        PhysicsPlugins::default(),
+        plugin,
+    ))
+    // .add_plugins(DspPlugin::default())
+    .insert_resource(ClearColor(blue))
+    // .add_dsp_source(white_noise, SourceType::Dynamic)
+    .add_systems(Startup, setup)
+    // .add_systems(PostStartup, play_noise)
+    // .add_systems(Update, bevy::window::close_on_esc)
+    // .add_systems(Update, oscillate_motors)
+    // .add_systems(FixedUpdate, sync_muscles)
+    // .add_systems(Update, graph::flex_muscles)
+    .add_plugins(PanOrbitCameraPlugin);
     // Run the app
     app.run();
 }
@@ -64,7 +66,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     // dsp_manager: Res<DspManager>,
 ) {
-
     let mut rng = rand::thread_rng();
     let ground_color = Color::srgb_u8(226, 199, 184);
     // Ground
@@ -74,7 +75,10 @@ fn setup(
             material: materials.add(ground_color),
             ..default()
         },
-        CollisionLayers::new([Layer::Ground], [Layer::Part, Layer::PartEven, Layer::PartOdd]),
+        CollisionLayers::new(
+            [Layer::Ground],
+            [Layer::Part, Layer::PartEven, Layer::PartOdd],
+        ),
         RigidBody::Static,
         Collider::cuboid(10., 0.1, 10.),
     ));
@@ -108,7 +112,6 @@ fn setup(
             Rotation(parent.rotation()),
             Position(parent.position()),
             parent.collider(),
-
             CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven]),
         ))
         .id();
@@ -153,27 +156,27 @@ fn setup(
         //                                                    // .with_compliance(1.0 / 1000.0),
         // );
         commands.spawn(
-            { let mut j = SphericalJoint::new(parent_cube, child_cube)
-                // .with_swing_axis(Vector::Y)
-                // .with_twist_axis(Vector::X)
-                .with_local_anchor_1(p1)
-                .with_local_anchor_2(p2)
-                // .with_aligned_axis(Vector::Z)
-                .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
-                .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
-              j.swing_axis = Vector::Y;
-              j.twist_axis = Vector::X;
-              j
-            }
-                                                           // .with_angular_velocity_damping(1.0)
-                                                           // .with_compliance(1.0 / 1000.0),
+            {
+                let mut j = SphericalJoint::new(parent_cube, child_cube)
+                    // .with_swing_axis(Vector::Y)
+                    // .with_twist_axis(Vector::X)
+                    .with_local_anchor_1(p1)
+                    .with_local_anchor_2(p2)
+                    // .with_aligned_axis(Vector::Z)
+                    .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
+                    .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
+                j.swing_axis = Vector::Y;
+                j.twist_axis = Vector::X;
+                j
+            }, // .with_angular_velocity_damping(1.0)
+               // .with_compliance(1.0 / 1000.0),
         );
         let a1 = parent.extents * Vector::new(0.5, 0.5, 0.0);
         let a2 = child.extents * Vector::new(0.5, 0.5, 0.0);
 
         let rest_length = (parent.from_local(a1) - child.from_local(a2)).length();
 
-        let length_scale = 0.4;
+        // let length_scale = 0.4;
 
         // let sample_rate = 44_100.0; // This should come from somewhere else.
         // let dsp = DspSource::new(white_noise_mono,
@@ -185,69 +188,75 @@ fn setup(
         //             .unwrap()
         //             // HACK: This doesn't feel right.
         //             .clone();
-        let muscle_id = commands.spawn(
-            DistanceJoint::new(parent_cube, child_cube)
-                .with_local_anchor_1(a1)
-                .with_local_anchor_2(a2)
-                .with_rest_length(rest_length)
-                // .with_limits(rest_length * length_scale, rest_length * (1.0 + length_scale))
-                // .with_limits(0.0, 2.0 * rest_length)
-                // .with_linear_velocity_damping(0.1)
-                // .with_angular_velocity_damping(1.0)
-                .with_compliance(1.0 / 100.0))
+        let muscle_id = commands
+            .spawn(
+                DistanceJoint::new(parent_cube, child_cube)
+                    .with_local_anchor_1(a1)
+                    .with_local_anchor_2(a2)
+                    .with_rest_length(rest_length)
+                    // .with_limits(rest_length * length_scale, rest_length * (1.0 + length_scale))
+                    // .with_limits(0.0, 2.0 * rest_length)
+                    // .with_linear_velocity_damping(0.1)
+                    // .with_angular_velocity_damping(1.0)
+                    .with_compliance(1.0 / 100.0),
+            )
             .insert(
-            // MuscleUnit {
-            //     // iter: dsp_sources.add(dsp)
-            //     // iter: dsp.into_iter()
-            //     unit: Box::new({ let mut unit = white_noise_mono();
-            //                      unit.set_sample_rate(1000.0);
-            //                      unit}),
-            //     min: rest_length * length_scale,
-            //     max: rest_length * (1.0 + length_scale),
-            // }
+                // MuscleUnit {
+                //     // iter: dsp_sources.add(dsp)
+                //     // iter: dsp.into_iter()
+                //     unit: Box::new({ let mut unit = white_noise_mono();
+                //                      unit.set_sample_rate(1000.0);
+                //                      unit}),
+                //     min: rest_length * length_scale,
+                //     max: rest_length * (1.0 + length_scale),
+                // }
 
-            // SpringOscillator {
-            //     freq: 1.0,
-            //     min: rest_length * length_scale,
-            //     max: rest_length * (1.0 + length_scale),
-            // },
-
-            Muscle::default())
-            .insert(MuscleRange { min: 0.0, max: rest_length * 2.0 })
+                // SpringOscillator {
+                //     freq: 1.0,
+                //     min: rest_length * length_scale,
+                //     max: rest_length * (1.0 + length_scale),
+                // },
+                Muscle::default(),
+            )
+            .insert(MuscleRange {
+                min: 0.0,
+                max: rest_length * 2.0,
+            })
             .id();
         muscles.push(muscle_id);
         parent = child;
         parent_cube = child_cube;
     }
-    commands.spawn((NervousSystem {
-        muscles,
-        sensors: vec![]
-    },
-                    KeyboardBrain,
-                    // SpringOscillator {
-                    //     freq: 0.5,
-                    //     phase: 0.0,
-                    // },
-                    // OscillatorBrain {
-                    //     oscillators: vec![
-                    //         SpringOscillator {
-                    //             freq: 0.5,
-                    //             phase: 0.0,
-                    //         },
-                    //         SpringOscillator {
-                    //             freq: 0.5,
-                    //             phase: 0.2,
-                    //         },
-                    //         SpringOscillator {
-                    //             freq: 0.5,
-                    //             phase: 0.4,
-                    //         },
-                    //         SpringOscillator {
-                    //             freq: 0.5,
-                    //             phase: 0.6,
-                    //         },
-                    //     ]
-                    // }
+    commands.spawn((
+        NervousSystem {
+            muscles,
+            sensors: vec![],
+        },
+        // KeyboardBrain,
+        // SpringOscillator {
+        //     freq: 0.5,
+        //     phase: 0.0,
+        // },
+        OscillatorBrain {
+            oscillators: vec![
+                SpringOscillator {
+                    freq: 0.5,
+                    phase: 0.0,
+                },
+                SpringOscillator {
+                    freq: 0.5,
+                    phase: 0.2,
+                },
+                SpringOscillator {
+                    freq: 0.5,
+                    phase: 0.4,
+                },
+                SpringOscillator {
+                    freq: 0.5,
+                    phase: 0.6,
+                },
+            ],
+        },
     ));
 
     // Light
@@ -257,8 +266,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(1.0, 8.0, 1.0)
-            .looking_at(Vec3::ZERO, Dir3::Y),
+        transform: Transform::from_xyz(1.0, 8.0, 1.0).looking_at(Vec3::ZERO, Dir3::Y),
         ..default()
     });
 
