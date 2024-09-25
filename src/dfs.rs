@@ -3,7 +3,7 @@ use petgraph::visit::{EdgeRef, GraphBase, IntoEdgesDirected, GraphRef, IntoNeigh
 use petgraph::{Direction, Incoming};
 use std::{
     hash::{Hash, DefaultHasher, Hasher},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     marker::PhantomData,
 };
 
@@ -117,18 +117,21 @@ where
         G: IntoEdgesDirected<NodeId = N, EdgeId = E>,
     {
         while let Some((node, mut edges)) = self.stack.pop() {
-            if self.discovered.visit(node) && self.edge_discovered.visit_edge(&edges) {
+            if //self.discovered.visit(node) &&
+                self.edge_discovered.visit_edge(&edges) {
                 for edge in graph.edges_directed(node, Direction::Outgoing) {
                     edges.push(edge.id());
                     let succ = edge.target();
                 // for succ in graph.neighbors(node) {
-                    if !self.discovered.is_visited(&succ) && !self.edge_discovered.is_visited_edge(&edges) {
+                    if // !self.discovered.is_visited(&succ) &&
+                      !self.edge_discovered.is_visited_edge(&edges) {
                         self.stack.push((succ, edges.clone()));
                     }
                     edges.pop();
                 }
-                return Some(node);
+                // return Some(node);
             }
+            return Some(node);
         }
         None
     }
@@ -152,7 +155,7 @@ pub trait EdgeVisitable: GraphBase {
     fn visit_edge_map(&self, f: impl Fn(&[Self::EdgeId]) -> Option<u8> + 'static) -> Self::Map;
 }
 
-impl<G: GraphBase> EdgeVisitable for G where G::EdgeId: Hash{
+impl<G: GraphBase> EdgeVisitable for G where G::EdgeId: Hash + Eq{
     type Map = RevisitEdgeMap<G::EdgeId>;
 
     fn visit_edge_map(&self, f: impl Fn(&[G::EdgeId]) -> Option<u8> + 'static) -> Self::Map {
@@ -171,11 +174,17 @@ impl<E> RevisitEdgeMap<E>
     }
 }
 
-impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash {
+impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash + Eq {
     fn visit_edge(&mut self, e: &[E]) -> bool {
         let mut hash = DefaultHasher::new();
-        e.hash(&mut hash);
+        let mut set = HashSet::new();
+        for edge in e {
+            if set.insert(edge) {
+                edge.hash(&mut hash);
+            }
+        }
         let key = hash.finish();
+        eprintln!("hash {key}");
         if let Some(count) = self.counts.get_mut(&key) {
             count.checked_sub(1).map(|c| *count = c).is_some()
         } else {
@@ -188,7 +197,12 @@ impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash {
 
     fn is_visited_edge(&self, e: &[E]) -> bool {
         let mut hash = DefaultHasher::new();
-        e.hash(&mut hash);
+        let mut set = HashSet::new();
+        for edge in e {
+            if set.insert(edge) {
+                edge.hash(&mut hash);
+            }
+        }
         let key = hash.finish();
         matches!(self.counts.get(&key), Some(0))
     }
@@ -227,6 +241,20 @@ mod test {
 
         let mut dfs = super::Dfs::new(&g, a, edge_map);
         assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn visit_edge_map_0() {
+        let mut g = Graph::<usize, ()>::new();
+        let a = g.add_node(0);
+        g.add_edge(a, a, ());
+        let edge_map = g.visit_edge_map(|_| Some(0u8));
+        // assert!(edge_map.is_visited_edge(&[a]))
+
+        let mut dfs = super::Dfs::new(&g, a, edge_map);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -239,6 +267,7 @@ mod test {
         // assert!(edge_map.is_visited_edge(&[a]))
 
         let mut dfs = super::Dfs::new(&g, a, edge_map);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
