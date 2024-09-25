@@ -172,19 +172,38 @@ impl<E> RevisitEdgeMap<E>
             edge: PhantomData,
         }
     }
-}
 
-impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash + Eq {
-    fn visit_edge(&mut self, e: &[E]) -> bool {
+    // fn hash_edges(edges: &[E]) -> u64 where E: Hash + Eq {
+    //     let mut hash = DefaultHasher::new();
+    //     let mut set = HashSet::new();
+    //     for edge in &edges[0..edges.len().saturating_sub(1)] {
+    //         if set.insert(edge) {
+    //             edge.hash(&mut hash);
+    //         }
+    //     }
+    //     // Always has the last edge.
+    //     edges.last().map(|e| e.hash(&mut hash));
+    //     let h = hash.finish();
+    //     eprintln!("hash {h}");
+    //     h
+    // }
+    fn hash_edges(edges: &[E]) -> u64 where E: Hash + Eq {
         let mut hash = DefaultHasher::new();
         let mut set = HashSet::new();
-        for edge in e {
+        for edge in edges {
             if set.insert(edge) {
                 edge.hash(&mut hash);
             }
         }
-        let key = hash.finish();
-        eprintln!("hash {key}");
+        let h = hash.finish();
+        eprintln!("hash {h}");
+        h
+    }
+}
+
+impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash + Eq {
+    fn visit_edge(&mut self, e: &[E]) -> bool {
+        let key = Self::hash_edges(e);
         if let Some(count) = self.counts.get_mut(&key) {
             count.checked_sub(1).map(|c| *count = c).is_some()
         } else {
@@ -196,14 +215,7 @@ impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash + Eq {
     }
 
     fn is_visited_edge(&self, e: &[E]) -> bool {
-        let mut hash = DefaultHasher::new();
-        let mut set = HashSet::new();
-        for edge in e {
-            if set.insert(edge) {
-                edge.hash(&mut hash);
-            }
-        }
-        let key = hash.finish();
+        let key = Self::hash_edges(e);
         matches!(self.counts.get(&key), Some(0))
     }
 }
@@ -237,7 +249,6 @@ mod test {
         let a = g.add_node(0);
         g.add_edge(a, a, ());
         let edge_map = g.visit_edge_map(|_| Some(1u8));
-        // assert!(edge_map.is_visited_edge(&[a]))
 
         let mut dfs = super::Dfs::new(&g, a, edge_map);
         assert_eq!(dfs.next(&g), Some(a));
