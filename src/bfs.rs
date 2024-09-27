@@ -39,6 +39,7 @@ use std::{
 pub struct Dfs<E,N, F,T> {
     /// The queue of nodes to visit
     pub stack: Vec<(E, usize)>,
+    pub path: Vec<E>,
     /// The map of discovered nodes
     // pub discovered: VM,
     pub edge_traverses: F,
@@ -60,7 +61,7 @@ pub struct Dfs<E,N, F,T> {
 
 impl<E, N, F, T> Dfs<E, N, F, T>
 where
-    E: Copy,
+    E: Copy + Eq,
     F: Fn(E) -> Option<u8>,
     T: Fn(E) -> N,
 {
@@ -70,34 +71,23 @@ where
         where G: GraphRef + Visitable<NodeId = N, EdgeId = E>,
 
     {
-        // let root_edge = graph.edges_directed(start.into(), Direction::Incoming).next().unwrap();
-        // let discovered = graph.visit_map();
-        // discovered.visit(start);
-        Dfs { stack: vec![(start, 0)], edge_traverses, edge_target, node: PhantomData }
+        Dfs { stack: vec![(start, 0)], path: Vec::new(), edge_traverses, edge_target, node: PhantomData }
     }
 
     /// Return the next edge in the bfs, or **None** if the traversal is done.
     pub fn next<G>(&mut self, graph: G) -> Option<E>
     where
-        G: GraphRef + Visitable<NodeId =N, EdgeId = E> + IntoEdgesDirected
-        // E: EdgeRef
-    //std::ops::Index<EdgeIndex<petgraph::stable_graph::DefaultIx>>
+        G: GraphRef + Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected
     {
         if let Some((edge, depth)) = self.stack.pop() {
-
-
-            // let edge = &graph[EdgeIndexable::to_index(&graph, edge)];
-            // if let Some(edge) = graph.next_edge(edge, Direction::Outgoing) {
-                for succ in graph.edges_directed((self.edge_target)(edge), Direction::Outgoing) {
-                // for succ in graph.neighbors(edge) {
-                    // if self.discovered.visit(succ) {
-                        self.stack.push((succ.id(), depth + 1));
-                    // }
-                }
-            // }
-
+            let _ = self.path.drain(depth..);
+            self.path.push(edge);
+            for succ in graph.edges_directed((self.edge_target)(edge), Direction::Outgoing) {
+                self.stack.push((succ.id(), depth + 1));
+            }
             return Some(edge);
         }
+        self.path.clear();
         None
     }
 }
@@ -108,12 +98,42 @@ mod test {
 
     #[test]
     fn node1() {
-        let mut g = Graph::<usize, ()>::new();
+        let mut g = Graph::<isize, ()>::new();
+        let r = g.add_node(-1);
         let a = g.add_node(0);
-        let e = g.add_edge(a, a, ());
+        let e = g.add_edge(r, a, ());
         let mut dfs = Dfs::new(&g, e, |_| Some(1), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
         assert_eq!(dfs.next(&g), Some(e));
-        assert_eq!(dfs.next(&g), Some(e));
+        assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn node_root() {
+        let mut g = Graph::<isize, ()>::new();
+        let r = g.add_node(-1);
+        let a = g.add_node(0);
+        let b = g.add_node(1);
+        let c = g.add_node(2);
+        let d = g.add_node(3);
+        let e = g.add_node(4);
+        let e0 = g.add_edge(r, a, ());
+        let e1 = g.add_edge(a, b, ());
+        let e2 = g.add_edge(b, c, ());
+        let e3 = g.add_edge(b, d, ());
+        let e4 = g.add_edge(a, e, ());
+        let mut dfs = Dfs::new(&g, e0, |_| Some(1), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
+        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.path, vec![e0]);
+        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.path, vec![e0, e1]);
+        assert_eq!(dfs.next(&g), Some(e2));
+        assert_eq!(dfs.path, vec![e0, e1, e2]);
+        assert_eq!(dfs.next(&g), Some(e3));
+        assert_eq!(dfs.path, vec![e0, e1, e3]);
+        assert_eq!(dfs.next(&g), Some(e4));
+        assert_eq!(dfs.path, vec![e0, e4]);
+        assert_eq!(dfs.next(&g), None);
+        assert_eq!(dfs.path, vec![]);
     }
 
 }
