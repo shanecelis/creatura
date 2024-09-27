@@ -82,10 +82,13 @@ where
         if let Some((edge, depth)) = self.stack.pop() {
             let _ = self.path.drain(depth..);
             self.path.push(edge);
-            for succ in graph.edges_directed((self.edge_target)(edge), Direction::Outgoing) {
-                self.stack.push((succ.id(), depth + 1));
+            let allowance = (self.edge_traverses)(edge).unwrap_or(1);
+            if self.path.iter().filter(|e| edge == **e).count() as u8 <= allowance {
+                for succ in graph.edges_directed((self.edge_target)(edge), Direction::Outgoing) {
+                    self.stack.push((succ.id(), depth + 1));
+                }
+                return Some(edge);
             }
-            return Some(edge);
         }
         self.path.clear();
         None
@@ -104,6 +107,45 @@ mod test {
         let e = g.add_edge(r, a, ());
         let mut dfs = Dfs::new(&g, e, |_| Some(1), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
         assert_eq!(dfs.next(&g), Some(e));
+        assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn node_cycle0() {
+        let mut g = Graph::<isize, ()>::new();
+        let r = g.add_node(-1);
+        let a = g.add_node(0);
+        let e0 = g.add_edge(r, a, ());
+        let e1 = g.add_edge(a, a, ());
+        let mut dfs = Dfs::new(&g, e0, |_| Some(0), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
+        // assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn node_cycle1() {
+        let mut g = Graph::<isize, ()>::new();
+        let r = g.add_node(-1);
+        let a = g.add_node(0);
+        let e0 = g.add_edge(r, a, ());
+        let e1 = g.add_edge(a, a, ());
+        let mut dfs = Dfs::new(&g, e0, |_| Some(1), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
+        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn node_cycle2() {
+        let mut g = Graph::<isize, ()>::new();
+        let r = g.add_node(-1);
+        let a = g.add_node(0);
+        let e0 = g.add_edge(r, a, ());
+        let e1 = g.add_edge(a, a, ());
+        let mut dfs = Dfs::new(&g, e0, |_| Some(2), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
+        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), None);
     }
 
