@@ -283,4 +283,34 @@ mod test {
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
+
+// fn get_edge_target<G, E>(graph: G, edge: E) -> G::NodeId
+// where
+//     G: GraphRef + petgraph::visit::IntoEdgeReferences<EdgeId = E>,
+//     // E: petgraph::graph::EdgeIndex,
+// {
+//     // Use edge_endpoints to find the (source, target) pair for the given edge.
+//     // Return the target node.
+//     graph.edge_endpoints(edge).expect("Edge not found").1
+// }
+
+fn get_edge_target<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>, edge: EdgeIndex<Ix>) -> Option<NodeIndex<Ix>>
+where
+    Ty: petgraph::EdgeType, // Graph can be directed or undirected
+    Ix: petgraph::graph::IndexType, // Index type (u32, u64, etc.)
+{
+    // `edge_endpoints` returns the (source, target) for the edge. We return the target.
+    graph.edge_endpoints(edge).map(|(_, target)| target)
+}
+
+    #[test]
+    fn test_edge_index() {
+        let mut g = Graph::<usize, ()>::new();
+        let a = g.add_node(0);
+        let e = g.add_edge(a, a, ());
+        assert_eq!(g[e], ()); // Only returns the weight.
+        assert_eq!(g[a], 0); // Only returns the node value.
+        assert_eq!(get_edge_target(&g, e), Some(a));
+
+    }
 }

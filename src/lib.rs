@@ -5,6 +5,8 @@ use bevy::prelude::*;
 use nalgebra::{point, Isometry};
 mod repeat_visit_map;
 mod dfs;
+mod bfs;
+mod chatgpt;
 
 #[cfg(feature = "dsp")]
 mod dsp;
