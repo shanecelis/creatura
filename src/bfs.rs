@@ -109,35 +109,26 @@ mod test {
     #[test]
     fn node1() {
         let mut g = Graph::<isize, ()>::new();
-        let r = g.add_node(-1);
         let a = g.add_node(0);
-        let e = g.add_edge(r, a, ());
         let mut dfs = Dfs::new(&g, a, |_| Some(1), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
-        // assert_eq!(dfs.next(&g), Some(e));
         assert_eq!(dfs.next(&g), None);
     }
 
     #[test]
     fn node_cycle0() {
         let mut g = Graph::<isize, ()>::new();
-        let r = g.add_node(-1);
         let a = g.add_node(0);
-        let e0 = g.add_edge(r, a, ());
-        let e1 = g.add_edge(a, a, ());
+        let _ = g.add_edge(a, a, ());
         let mut dfs = Dfs::new(&g, a, |_| Some(0), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
-        // assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.next(&g), None);
     }
 
     #[test]
     fn node_cycle1() {
         let mut g = Graph::<isize, ()>::new();
-        let r = g.add_node(-1);
         let a = g.add_node(0);
-        let e0 = g.add_edge(r, a, ());
         let e1 = g.add_edge(a, a, ());
         let mut dfs = Dfs::new(&g, a, |_| Some(1), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
-        // assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), None);
     }
@@ -145,12 +136,9 @@ mod test {
     #[test]
     fn node_cycle2() {
         let mut g = Graph::<isize, ()>::new();
-        let r = g.add_node(-1);
         let a = g.add_node(0);
-        let e0 = g.add_edge(r, a, ());
         let e1 = g.add_edge(a, a, ());
         let mut dfs = Dfs::new(&g, a, |_| Some(2), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
-        // assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), None);
@@ -159,12 +147,9 @@ mod test {
     #[test]
     fn node_cycle3() {
         let mut g = Graph::<isize, ()>::new();
-        let r = g.add_node(-1);
         let a = g.add_node(0);
-        let e0 = g.add_edge(r, a, ());
         let e1 = g.add_edge(a, a, ());
         let mut dfs = Dfs::new(&g, a, |_| Some(3), |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap());
-        // assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), Some(e1));
