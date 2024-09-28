@@ -13,10 +13,10 @@ use std::{
     marker::PhantomData,
     ops::Index,
 };
-/// A breadth first search (BFS) of a graph.
+/// A depth first search (DFS) of a graph.
 ///
-/// The traversal starts at a given edge and only traverses nodes reachable
-/// from it.
+/// The traversal starts at the edges of a given node and only traverses nodes
+/// reachable from it.
 ///
 /// `Dfs` is not recursive.
 ///
@@ -44,47 +44,37 @@ use std::{
 /// during iteration. It may not necessarily visit added nodes or edges.
 #[derive(Clone)]
 pub struct Dfs<E, N, F, T> {
-    /// The queue of nodes to visit
+    /// The stack of edges to visit
     pub stack: Vec<(E, usize)>,
+    /// The path of edge for last visit
     pub path: Vec<E>,
-    /// The map of discovered nodes
-    // pub discovered: VM,
+    /// Function that returns the number of traversals permitted for edge
     pub edge_traverses: F,
+    /// Closure that returns the target of an edge
+    ///
+    /// TODO: Consider exposing this as a trait in petgraph so it could be
+    /// avoided.
     pub edge_target: T,
     pub node: PhantomData<N>,
 }
 
-// impl<E, VM> Default for Dfs<E, VM>
-// where
-//     VM: Default,
-// {
-//     fn default() -> Self {
-//         Dfs {
-//             stack: VecDeque::new(),
-//             discovered: VM::default(),
-//         }
-//     }
-// }
-
 impl<E, N, F, T> Dfs<E, N, F, T>
 where
     E: Copy + Eq,
-    F: Fn(E) -> Option<u8>,
+    F: Fn(E) -> u8,
     T: Fn(E) -> N,
 {
-    /// Create a new **Dfs**, using the graph's visitor map, and put **start**
-    /// in the stack of nodes to visit.
+    /// Create a new `Dfs`, and put `start`'s edges onthe stack of edges to visit.
     pub fn new<G>(graph: G, start: N, edge_traverses: F, edge_target: T) -> Self
     where
         G: GraphRef + Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected,
     {
         let mut stack = vec![];
         for succ in graph.edges_directed(start, Direction::Outgoing) {
-            if edge_traverses(succ.id()).unwrap_or(1) > 0 {
+            if edge_traverses(succ.id()) > 0 {
                 stack.push((succ.id(), 0));
             }
         }
-        // stack.reverse();
         Dfs {
             stack,
             path: Vec::new(),
@@ -94,7 +84,7 @@ where
         }
     }
 
-    /// Return the next edge in the bfs, or **None** if the traversal is done.
+    /// Return the next edge in the dfs, or **None** if the traversal is done.
     pub fn next<G>(&mut self, graph: G) -> Option<E>
     where
         G: GraphRef + Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected,
@@ -104,7 +94,7 @@ where
             self.path.push(edge);
             for succ in graph.edges_directed((self.edge_target)(edge), Direction::Outgoing) {
                 let succ = succ.id();
-                let allowance = (self.edge_traverses)(succ).unwrap_or(1);
+                let allowance = (self.edge_traverses)(succ);
                 if (self.path.iter().filter(|e| succ == **e).count() as u8)
                     <= allowance.saturating_sub(1)
                 {
@@ -129,7 +119,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(1),
+            |_| 1,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.next(&g), None);
@@ -143,7 +133,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(0),
+            |_| 0,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.next(&g), None);
@@ -157,7 +147,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(1),
+            |_| 1,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.next(&g), Some(e1));
@@ -172,7 +162,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(2),
+            |_| 2,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.next(&g), Some(e1));
@@ -188,7 +178,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(3),
+            |_| 3,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.next(&g), Some(e1));
@@ -212,7 +202,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(1),
+            |_| 1,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         // assert_eq!(dfs.next(&g), Some(e0));
@@ -245,7 +235,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(1),
+            |_| 1,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.stack, vec![(e1, 0), (e0, 0)]);
@@ -273,7 +263,7 @@ mod test {
         let mut dfs = Dfs::new(
             &g,
             a,
-            |_| Some(2),
+            |_| 2,
             |e| g.edge_endpoints(e).map(|(_, target)| target).unwrap(),
         );
         assert_eq!(dfs.next(&g), Some(e0));

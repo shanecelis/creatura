@@ -4,7 +4,6 @@ use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
 mod bfs;
-mod dfs;
 mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
