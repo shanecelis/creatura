@@ -3,9 +3,9 @@
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
-mod repeat_visit_map;
-mod dfs;
 mod bfs;
+mod dfs;
+mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
 mod dsp;
@@ -116,12 +116,13 @@ pub fn keyboard_brain(
     mut commands: Commands,
 ) {
     use KeyCode::*;
-    let keys = [[KeyQ, KeyA, KeyZ, Digit1],
-                [KeyW, KeyS, KeyX, Digit2],
-                [KeyE, KeyD, KeyC, Digit3],
-                [KeyR, KeyF, KeyV, Digit4],
-                [KeyT, KeyG, KeyB, Digit5],
-                [KeyY, KeyJ, KeyN, Digit6],
+    let keys = [
+        [KeyQ, KeyA, KeyZ, Digit1],
+        [KeyW, KeyS, KeyX, Digit2],
+        [KeyE, KeyD, KeyC, Digit3],
+        [KeyR, KeyF, KeyV, Digit4],
+        [KeyT, KeyG, KeyB, Digit5],
+        [KeyY, KeyJ, KeyN, Digit6],
     ];
     let delta = 1.0;
     for nervous_system in &nervous_systems {

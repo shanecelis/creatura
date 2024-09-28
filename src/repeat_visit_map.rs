@@ -18,7 +18,6 @@ impl<N> RepeatVisitMap<N>
 where
     N: Hash + Eq,
 {
-
     fn set_visits(&mut self, x: N, count: usize) {
         self.counts.insert(x, count);
     }

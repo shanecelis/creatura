@@ -1,9 +1,12 @@
 use petgraph::prelude::*;
-use petgraph::visit::{EdgeRef, GraphBase, IntoEdgesDirected, GraphRef, IntoNeighbors, IntoNeighborsDirected, VisitMap, Visitable};
+use petgraph::visit::{
+    EdgeRef, GraphBase, GraphRef, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected,
+    VisitMap, Visitable,
+};
 use petgraph::{Direction, Incoming};
 use std::{
-    hash::{Hash, DefaultHasher, Hasher},
     collections::{HashMap, HashSet},
+    hash::{DefaultHasher, Hash, Hasher},
     marker::PhantomData,
 };
 
@@ -43,7 +46,7 @@ pub struct Dfs<N, E, VM, VEM> {
     pub stack: Vec<(N, Vec<E>)>,
     /// The map of discovered nodes
     pub discovered: VM,
-    pub edge_discovered: VEM
+    pub edge_discovered: VEM,
 }
 
 // impl<N, E, VM, VEM> Default for Dfs<N, E, VM, VEM>
@@ -80,7 +83,11 @@ where
 
     /// Create a `Dfs` from a vector and a visit map
     pub fn from_parts(stack: Vec<(N, Vec<E>)>, discovered: VM, edge_discovered: VEM) -> Self {
-        Dfs { stack, discovered, edge_discovered }
+        Dfs {
+            stack,
+            discovered,
+            edge_discovered,
+        }
     }
 
     /// Clear the visit state
@@ -100,7 +107,7 @@ where
         Dfs {
             stack: Vec::new(),
             discovered: graph.visit_map(),
-            edge_discovered
+            edge_discovered,
         }
     }
 
@@ -117,14 +124,16 @@ where
         G: IntoEdgesDirected<NodeId = N, EdgeId = E>,
     {
         while let Some((node, mut edges)) = self.stack.pop() {
-            if //self.discovered.visit(node) &&
-                self.edge_discovered.visit_edge(&edges) {
+            if
+            //self.discovered.visit(node) &&
+            self.edge_discovered.visit_edge(&edges) {
                 for edge in graph.edges_directed(node, Direction::Outgoing) {
                     edges.push(edge.id());
                     let succ = edge.target();
-                // for succ in graph.neighbors(node) {
-                    if // !self.discovered.is_visited(&succ) &&
-                      !self.edge_discovered.is_visited_edge(&edges) {
+                    // for succ in graph.neighbors(node) {
+                    if
+                    // !self.discovered.is_visited(&succ) &&
+                    !self.edge_discovered.is_visited_edge(&edges) {
                         self.stack.push((succ, edges.clone()));
                     }
                     edges.pop();
@@ -143,7 +152,8 @@ pub trait VisitEdgeMap<E> {
     fn is_visited_edge(&self, e: &[E]) -> bool;
 }
 
-pub struct RevisitEdgeMap<E> {//where F: Fn(&[E]) -> Option<u8> {
+pub struct RevisitEdgeMap<E> {
+    //where F: Fn(&[E]) -> Option<u8> {
     pub counts: HashMap<u64, u8>,
     pub func: Box<dyn Fn(&[E]) -> Option<u8>>,
     pub edge: PhantomData<E>,
@@ -155,7 +165,10 @@ pub trait EdgeVisitable: GraphBase {
     fn visit_edge_map(&self, f: impl Fn(&[Self::EdgeId]) -> Option<u8> + 'static) -> Self::Map;
 }
 
-impl<G: GraphBase> EdgeVisitable for G where G::EdgeId: Hash + Eq{
+impl<G: GraphBase> EdgeVisitable for G
+where
+    G::EdgeId: Hash + Eq,
+{
     type Map = RevisitEdgeMap<G::EdgeId>;
 
     fn visit_edge_map(&self, f: impl Fn(&[G::EdgeId]) -> Option<u8> + 'static) -> Self::Map {
@@ -163,8 +176,7 @@ impl<G: GraphBase> EdgeVisitable for G where G::EdgeId: Hash + Eq{
     }
 }
 
-impl<E> RevisitEdgeMap<E>
-{
+impl<E> RevisitEdgeMap<E> {
     fn new(f: impl Fn(&[E]) -> Option<u8> + 'static) -> Self {
         Self {
             counts: HashMap::default(),
@@ -187,7 +199,10 @@ impl<E> RevisitEdgeMap<E>
     //     eprintln!("hash {h}");
     //     h
     // }
-    fn hash_edges(edges: &[E]) -> u64 where E: Hash + Eq {
+    fn hash_edges(edges: &[E]) -> u64
+    where
+        E: Hash + Eq,
+    {
         let mut hash = DefaultHasher::new();
         let mut set = HashSet::new();
         for edge in edges {
@@ -201,7 +216,10 @@ impl<E> RevisitEdgeMap<E>
     }
 }
 
-impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E> where E: Hash + Eq {
+impl<E> VisitEdgeMap<E> for RevisitEdgeMap<E>
+where
+    E: Hash + Eq,
+{
     fn visit_edge(&mut self, e: &[E]) -> bool {
         let key = Self::hash_edges(e);
         if let Some(count) = self.counts.get_mut(&key) {
@@ -225,8 +243,7 @@ pub struct DummyVisit<N> {
     node: PhantomData<N>,
 }
 
-impl<N> VisitMap<N> for DummyVisit<N>
-{
+impl<N> VisitMap<N> for DummyVisit<N> {
     fn visit(&mut self, _x: N) -> bool {
         self.visit
     }
@@ -235,9 +252,6 @@ impl<N> VisitMap<N> for DummyVisit<N>
         self.visit
     }
 }
-
-
-
 
 #[cfg(test)]
 mod test {
@@ -284,24 +298,27 @@ mod test {
         assert_eq!(dfs.next(&g), None);
     }
 
-// fn get_edge_target<G, E>(graph: G, edge: E) -> G::NodeId
-// where
-//     G: GraphRef + petgraph::visit::IntoEdgeReferences<EdgeId = E>,
-//     // E: petgraph::graph::EdgeIndex,
-// {
-//     // Use edge_endpoints to find the (source, target) pair for the given edge.
-//     // Return the target node.
-//     graph.edge_endpoints(edge).expect("Edge not found").1
-// }
+    // fn get_edge_target<G, E>(graph: G, edge: E) -> G::NodeId
+    // where
+    //     G: GraphRef + petgraph::visit::IntoEdgeReferences<EdgeId = E>,
+    //     // E: petgraph::graph::EdgeIndex,
+    // {
+    //     // Use edge_endpoints to find the (source, target) pair for the given edge.
+    //     // Return the target node.
+    //     graph.edge_endpoints(edge).expect("Edge not found").1
+    // }
 
-fn get_edge_target<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>, edge: EdgeIndex<Ix>) -> Option<NodeIndex<Ix>>
-where
-    Ty: petgraph::EdgeType, // Graph can be directed or undirected
-    Ix: petgraph::graph::IndexType, // Index type (u32, u64, etc.)
-{
-    // `edge_endpoints` returns the (source, target) for the edge. We return the target.
-    graph.edge_endpoints(edge).map(|(_, target)| target)
-}
+    fn get_edge_target<N, E, Ty, Ix>(
+        graph: &Graph<N, E, Ty, Ix>,
+        edge: EdgeIndex<Ix>,
+    ) -> Option<NodeIndex<Ix>>
+    where
+        Ty: petgraph::EdgeType,         // Graph can be directed or undirected
+        Ix: petgraph::graph::IndexType, // Index type (u32, u64, etc.)
+    {
+        // `edge_endpoints` returns the (source, target) for the edge. We return the target.
+        graph.edge_endpoints(edge).map(|(_, target)| target)
+    }
 
     #[test]
     fn test_edge_index() {
@@ -311,6 +328,5 @@ where
         assert_eq!(g[e], ()); // Only returns the weight.
         assert_eq!(g[a], 0); // Only returns the node value.
         assert_eq!(get_edge_target(&g, e), Some(a));
-
     }
 }
