@@ -115,6 +115,11 @@ where
             None
         }
     }
+
+    /// Return the depth of the last edge given by `next()`.
+    pub fn depth(&self) -> usize {
+        self.path.len()
+    }
 }
 
 /// Get the nodes of an edge.
