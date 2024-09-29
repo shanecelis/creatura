@@ -14,7 +14,7 @@ use std::{
     ops::Index,
 };
 
-/// An cyclic depth first search (DFS) of a graph.
+/// An cyclic depth first search (CDFS) of a graph.
 ///
 /// The traversal starts at the edges of a given node and only traverses nodes
 /// reachable from it. It returns the current edge rather than the current node.
@@ -29,7 +29,9 @@ use std::{
 ///
 /// The interesting case is where `edge_permits = |_, _| 2` now edges will be
 /// traversed at most two times on any path. So for a simple graph with one node
-/// and a self-edge, the CDFS will return that edge twice.
+/// and a self-edge, the CDFS will return that edge twice. This allows one to
+/// intentionally traverse cyclic graphs like those present in
+/// [Sims](https://www.karlsims.com/papers/siggraph94.pdf)' work without traversing infinitely.
 ///
 /// `Cdfs` is not recursive.
 ///
@@ -77,7 +79,7 @@ where
     G: GraphBase,
     for<'a> &'a G: Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
 {
-    /// Create a new `Cdfs`, and put `start`'s edges onthe stack of edges to visit.
+    /// Create a new `Cdfs`, and put `start`'s edges on the stack of edges to visit.
     pub fn new(graph: &G, start: N, edge_permits: F) -> Self {
         let mut stack = vec![];
         for succ in graph.edges_directed(start, Direction::Outgoing) {
@@ -93,12 +95,12 @@ where
         }
     }
 
-    /// Return the next edge in the dfs, or **None** if the traversal is done.
+    /// Return the next edge in the cdfs, or `None` if the traversal is done.
     pub fn next(&mut self, graph: &G) -> Option<E> {
         if let Some((edge, depth)) = self.stack.pop() {
             let _ = self.path.drain(depth..);
             self.path.push(edge);
-            if let Some(target) = graph.edge_endpoints(edge).map(|(_, target)| target) {
+            if let Some((_, target)) = graph.edge_endpoints(edge) {
                 for succ in graph.edges_directed(target, Direction::Outgoing) {
                     let succ = succ.id();
                     let allowance = (self.edge_permits)(graph, succ);
