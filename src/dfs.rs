@@ -14,20 +14,6 @@ use std::{
     ops::Index,
 };
 
-pub trait EdgeEndpoints<N, E> {
-    fn edge_endpoints(&self, edge_id: E) -> Option<(N, N)>;
-}
-
-impl<N, E, Ty, Ix> EdgeEndpoints<NodeIndex<Ix>, EdgeIndex<Ix>> for &Graph<N, E, Ty, Ix>
-where
-    Ty: EdgeType,
-    Ix: IndexType,
-{
-    fn edge_endpoints(&self, edge_id: EdgeIndex<Ix>) -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)> {
-        Graph::edge_endpoints(self, edge_id)
-    }
-}
-
 /// An cyclic depth first search (DFS) of a graph.
 ///
 /// The traversal starts at the edges of a given node and only traverses nodes
@@ -107,22 +93,6 @@ where
         }
     }
 
-    // pub fn from_edges(edges: impl Iterator<Item = E>, edge_permits: F, edge_target: T) -> Self
-    // {
-    //     let mut stack = vec![];
-    //     for edge in edges {
-    //         stack.push((edge, 0));
-    //     }
-    //     Cdfs {
-    //         stack,
-    //         path: Vec::new(),
-    //         edge_permits,
-    //         edge_target,
-    //         node: PhantomData,
-    //         graph: PhantomData,
-    //     }
-    // }
-
     /// Return the next edge in the dfs, or **None** if the traversal is done.
     pub fn next(&mut self, graph: &G) -> Option<E> {
         if let Some((edge, depth)) = self.stack.pop() {
@@ -146,6 +116,25 @@ where
         }
     }
 }
+
+/// Get the nodes of an edge.
+///
+/// NOTE: Functionality is already present in petgraph but not generic.
+pub trait EdgeEndpoints<N, E> {
+    /// Return the `(source, target)` of an edge if present.
+    fn edge_endpoints(&self, edge_id: E) -> Option<(N, N)>;
+}
+
+impl<N, E, Ty, Ix> EdgeEndpoints<NodeIndex<Ix>, EdgeIndex<Ix>> for &Graph<N, E, Ty, Ix>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+{
+    fn edge_endpoints(&self, edge_id: EdgeIndex<Ix>) -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)> {
+        Graph::edge_endpoints(self, edge_id)
+    }
+}
+
 
 #[cfg(test)]
 mod test {
@@ -329,29 +318,10 @@ mod test {
         let a = graph.add_node(0);
         let x = graph.add_edge(a, a, 0);
 
-        let mut g2 = Graph::<isize, isize>::new();
-        let a = g2.add_node(0);
-        let x = g2.add_edge(a, a, 0);
-        fn print_type<T>(_: &T) {
-            println!("TYPE IS {:?}", std::any::type_name::<T>());
-        }
         let mut cdfs = Cdfs::new(&graph, a, |_, _| 2);
-        // let mut cdfs = Cdfs::from_edges(Some(x).into_iter(), |_, _| 2);
-        print_type(&cdfs);
-
-        let mut count = 0;
-        loop {
-            let Some(e) = cdfs.next(&graph) else {
-                break;
-            };
-            // while let Some(e) = cdfs.next(&graph) {
-            // we can access `graph` mutably here still
-            // XXX: For some reason this is broken. Says there's a borrow problem.
+        while let Some(e) = cdfs.next(&graph) {
             graph[e] += 1;
-            count += 1;
         }
-
-        //assert_eq!(graph[x], 1);
-        assert_eq!(count, 2);
+        assert_eq!(graph[x], 2);
     }
 }
