@@ -19,8 +19,9 @@ pub trait EdgeEndpoints<N, E> {
 }
 
 impl<N, E, Ty, Ix> EdgeEndpoints<NodeIndex<Ix>, EdgeIndex<Ix>> for &Graph<N, E, Ty, Ix>
-    where Ty: EdgeType,
-          Ix: IndexType
+where
+    Ty: EdgeType,
+    Ix: IndexType,
 {
     fn edge_endpoints(&self, edge_id: EdgeIndex<Ix>) -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)> {
         Graph::edge_endpoints(self, edge_id)
@@ -79,20 +80,19 @@ pub struct Cdfs<E, N, G, F> {
     /// Closure that returns the number of traversals permitted for an edge for
     /// any path.
     pub edge_permits: F,
-    pub node: PhantomData<(N,G)>,
+    pub node: PhantomData<(N, G)>,
 }
 
 impl<E, N, G, F> Cdfs<E, N, G, F>
 where
     E: Copy + Eq,
     N: Copy + Eq,
-    F: Fn(&G,E) -> u8,
+    F: Fn(&G, E) -> u8,
     G: GraphBase,
     for<'a> &'a G: Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
 {
     /// Create a new `Cdfs`, and put `start`'s edges onthe stack of edges to visit.
-    pub fn new(graph: &G, start: N, edge_permits: F) -> Self
-    {
+    pub fn new(graph: &G, start: N, edge_permits: F) -> Self {
         let mut stack = vec![];
         for succ in graph.edges_directed(start, Direction::Outgoing) {
             if edge_permits(graph, succ.id()) > 0 {
@@ -124,21 +124,20 @@ where
     // }
 
     /// Return the next edge in the dfs, or **None** if the traversal is done.
-    pub fn next(&mut self, graph: &G) -> Option<E>
-    {
+    pub fn next(&mut self, graph: &G) -> Option<E> {
         if let Some((edge, depth)) = self.stack.pop() {
             let _ = self.path.drain(depth..);
             self.path.push(edge);
             if let Some(target) = graph.edge_endpoints(edge).map(|(_, target)| target) {
-            for succ in graph.edges_directed(target, Direction::Outgoing) {
-                let succ = succ.id();
-                let allowance = (self.edge_permits)(graph, succ);
-                if (self.path.iter().filter(|e| succ == **e).count() as u8)
-                    <= allowance.saturating_sub(1)
-                {
-                    self.stack.push((succ, depth + 1));
+                for succ in graph.edges_directed(target, Direction::Outgoing) {
+                    let succ = succ.id();
+                    let allowance = (self.edge_permits)(graph, succ);
+                    if (self.path.iter().filter(|e| succ == **e).count() as u8)
+                        <= allowance.saturating_sub(1)
+                    {
+                        self.stack.push((succ, depth + 1));
+                    }
                 }
-            }
             }
             Some(edge)
         } else {
@@ -156,11 +155,7 @@ mod test {
     fn node1() {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 1,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -169,11 +164,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 0,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 0);
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -182,11 +173,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let e1 = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 1,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), None);
     }
@@ -196,11 +183,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let e1 = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 2,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 2);
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), None);
@@ -211,11 +194,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let e1 = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 3,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 3);
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), Some(e1));
         assert_eq!(dfs.next(&g), Some(e1));
@@ -234,11 +213,7 @@ mod test {
         let e1 = g.add_edge(b, c, ());
         let e2 = g.add_edge(b, d, ());
         let e3 = g.add_edge(a, e, ());
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 1,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
         // assert_eq!(dfs.next(&g), Some(e0));
         // assert_eq!(dfs.path, vec![e0]);
         //
@@ -266,11 +241,7 @@ mod test {
         assert_eq!(g[e0], 0);
         assert_eq!(g[e1], 1);
         assert_ne!(e0, e1);
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 1,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
         assert_eq!(dfs.stack, vec![(e1, 0), (e0, 0)]);
         assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.stack, vec![(e1, 0), (e1, 1)], "wrong path");
@@ -293,11 +264,7 @@ mod test {
         assert_eq!(g[e0], 0);
         assert_eq!(g[e1], 1);
         assert_ne!(e0, e1);
-        let mut dfs = Cdfs::new(
-            &g,
-            a,
-            |_, _| 2,
-        );
+        let mut dfs = Cdfs::new(&g, a, |_, _| 2);
         assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.path, vec![e0]);
         assert_eq!(dfs.next(&g), Some(e0));
@@ -338,10 +305,10 @@ mod test {
 
     #[test]
     fn dfs_doc_test() {
-        use petgraph::Graph;
         use petgraph::visit::Dfs;
+        use petgraph::Graph;
 
-        let mut graph = Graph::<_,()>::new();
+        let mut graph = Graph::<_, ()>::new();
         let a = graph.add_node(0);
 
         let mut dfs = Dfs::new(&graph, a);
@@ -355,15 +322,14 @@ mod test {
 
     #[test]
     fn cdfs_doc_test() {
-
-        use petgraph::Graph;
         use crate::Cdfs;
+        use petgraph::Graph;
 
-        let mut graph = Graph::<isize,isize>::new();
+        let mut graph = Graph::<isize, isize>::new();
         let a = graph.add_node(0);
         let x = graph.add_edge(a, a, 0);
 
-        let mut g2 = Graph::<isize,isize>::new();
+        let mut g2 = Graph::<isize, isize>::new();
         let a = g2.add_node(0);
         let x = g2.add_edge(a, a, 0);
         fn print_type<T>(_: &T) {
@@ -375,8 +341,10 @@ mod test {
 
         let mut count = 0;
         loop {
-            let Some(e) = cdfs.next(&graph) else { break; };
-        // while let Some(e) = cdfs.next(&graph) {
+            let Some(e) = cdfs.next(&graph) else {
+                break;
+            };
+            // while let Some(e) = cdfs.next(&graph) {
             // we can access `graph` mutably here still
             // XXX: For some reason this is broken. Says there's a borrow problem.
             graph[e] += 1;
