@@ -14,13 +14,13 @@ use std::{
     ops::Index,
 };
 
-trait EdgeEndpoints<N, E> {
+pub trait EdgeEndpoints<N, E> {
     fn edge_endpoints(&self, edge_id: E) -> Option<(N, N)>;
 }
 
 impl<N, E, Ty, Ix> EdgeEndpoints<NodeIndex<Ix>, EdgeIndex<Ix>> for &Graph<N, E, Ty, Ix>
     where Ty: EdgeType,
-Ix: IndexType
+          Ix: IndexType
 {
     fn edge_endpoints(&self, edge_id: EdgeIndex<Ix>) -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)> {
         Graph::edge_endpoints(self, edge_id)
@@ -57,26 +57,15 @@ Ix: IndexType
 /// let mut graph = Graph::<isize,isize>::new();
 /// let a = graph.add_node(0);
 /// let x = graph.add_edge(a, a, 0);
-///
-/// let mut g2 = Graph::<isize,isize>::new();
-/// let a = g2.add_node(0);
-/// let x = g2.add_edge(a, a, 0);
-/// fn print_type<T>(_: &T) {
-///    println!("TYPE IS {:?}", std::any::type_name::<T>());
-/// }
 /// let mut cdfs = Cdfs::new(&graph, a, |_, _| 2);
-/// print_type(&cdfs);
 ///
-/// let mut count = 0;
 /// while let Some(e) = cdfs.next(&graph) {
 ///     // we can access `graph` mutably here still
 ///     // XXX: For some reason this is broken. Says there's a borrow problem.
-///     //graph[e] += 1;
-///     count += 1;
+///     graph[e] += 1;
 /// }
 ///
-/// //assert_eq!(graph[x], 1);
-/// assert_eq!(count, 2);
+/// assert_eq!(graph[x], 2);
 /// ```
 ///
 /// **Note:** The algorithm may not behave correctly if nodes are removed
@@ -97,11 +86,12 @@ impl<E, N, G, F> Cdfs<E, N, G, F>
 where
     E: Copy + Eq,
     N: Copy + Eq,
-    F: Fn(G,E) -> u8,
-    G: GraphRef + Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
+    F: Fn(&G,E) -> u8,
+    G: GraphBase,
+    for<'a> &'a G: Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
 {
     /// Create a new `Cdfs`, and put `start`'s edges onthe stack of edges to visit.
-    pub fn new(graph: G, start: N, edge_permits: F) -> Self
+    pub fn new(graph: &G, start: N, edge_permits: F) -> Self
     {
         let mut stack = vec![];
         for succ in graph.edges_directed(start, Direction::Outgoing) {
@@ -134,7 +124,7 @@ where
     // }
 
     /// Return the next edge in the dfs, or **None** if the traversal is done.
-    pub fn next(&mut self, graph: G) -> Option<E>
+    pub fn next(&mut self, graph: &G) -> Option<E>
     {
         if let Some((edge, depth)) = self.stack.pop() {
             let _ = self.path.drain(depth..);
@@ -389,7 +379,7 @@ mod test {
         // while let Some(e) = cdfs.next(&graph) {
             // we can access `graph` mutably here still
             // XXX: For some reason this is broken. Says there's a borrow problem.
-            // graph[e] += 1;
+            graph[e] += 1;
             count += 1;
         }
 

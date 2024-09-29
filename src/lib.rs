@@ -8,6 +8,7 @@ mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
 mod dsp;
+mod bfs;
 pub use dfs::Cdfs;
 // pub mod graph;
 //
