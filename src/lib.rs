@@ -3,12 +3,13 @@
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
-mod dfs;
 mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
 mod dsp;
-pub use dfs::Cdfs;
+
+mod cdfs;
+pub use cdfs::*;
 // pub mod graph;
 //
 #[derive(Component)]

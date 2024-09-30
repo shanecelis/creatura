@@ -143,6 +143,41 @@ where
 }
 
 
+pub fn unfurl<N, E, Ty, Ix, N2, E2>(graph: &Graph<N, E, Ty, Ix>, start: NodeIndex<Ix>, permits: impl Fn(&Graph<N, E, Ty, Ix>, EdgeIndex<Ix>) -> u8, mut node_fn: impl FnMut(&N) -> N2, mut edge_fn: impl FnMut(&E) -> E2) -> Graph<N2, E2, Ty, Ix>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+{
+    let mut cdfs = Cdfs::new(graph, start, permits);
+    let mut unfurled = Graph::<N2, E2, Ty, Ix>::default();
+    let mut new_nodes: HashMap<(NodeIndex<Ix>, Option<EdgeIndex<Ix>>, usize), NodeIndex<Ix>> = HashMap::new();
+
+    todo!("Fix this using the hash of the path");
+    let mut get_or_insert_node = |key: (NodeIndex<Ix>, Option<EdgeIndex<Ix>>, usize), unfurled: &mut Graph<N2, E2, Ty, Ix>| {
+        if let Some(node) = new_nodes.get(&key) {
+            *node
+        } else {
+            let n = unfurled.add_node(node_fn(&graph[key.0]));
+            new_nodes.insert(key, n);
+            new_nodes.insert((key.0, None, key.2), n);
+            n
+        }
+    };
+    while let Some(edge) = cdfs.next(graph) {
+        let depth = cdfs.depth().saturating_sub(1);
+        if let Some((source, target)) = graph.edge_endpoints(edge) {
+            // Copy the source, Luke!
+            // let source = get_or_insert_node((source, cdfs.path.iter().nth(depth.saturating_sub(1)).copied(), depth), &mut unfurled);
+            let source = get_or_insert_node((source, None, depth), &mut unfurled);
+            let target = get_or_insert_node((target, Some(edge), depth + 1), &mut unfurled);
+            unfurled.add_edge(source, target, edge_fn(&graph[edge]));
+            //
+        }
+    }
+    unfurled
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -162,6 +197,16 @@ mod test {
         let _ = g.add_edge(a, a, ());
         let mut dfs = Cdfs::new(&g, a, |_, _| 0);
         assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn node_unfurl() {
+        let mut g = Graph::<isize, ()>::new();
+        let a = g.add_node(0);
+        let _ = g.add_edge(a, a, ());
+        let g2 = unfurl(&g, a, |_, _| 2, |n| n.clone(), |e| e.clone());
+        assert_eq!(g2.node_count(), 3);
+        assert_eq!(g2.edge_count(), 2);
     }
 
     #[test]
@@ -297,6 +342,17 @@ mod test {
         assert_eq!(dfs.path, vec![e1, e1, e0]);
         assert_eq!(dfs.next(&g), Some(e0));
         assert_eq!(dfs.next(&g), None);
+    }
+
+    #[test]
+    fn node_tree_dot() {
+        use petgraph::dot::{Dot, Config};
+        let mut g = Graph::<isize, isize>::new();
+        let a = g.add_node(0);
+        let e0 = g.add_edge(a, a, 0);
+        let e1 = g.add_edge(a, a, 1);
+        let tree = unfurl(&g, a, |_, _| 2, |n| *n, |e| *e);
+        eprintln!("{:?}", Dot::with_config(&tree, &[Config::EdgeNoLabel]));
     }
 
     #[test]
