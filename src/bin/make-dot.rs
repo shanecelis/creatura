@@ -11,14 +11,13 @@ use muscley_wusaley::*;
 /// cargo run --bin make-dot  > tree.dot && dot -Tpdf tree.dot > tree.pdf && open tree.pdf
 /// ```
 fn main() {
-        let mut g = Graph::<isize, isize>::new();
-        let a = g.add_node(0);
-        let e0 = g.add_edge(a, a, 0);
-        let e1 = g.add_edge(a, a, 100);
+        let mut g = Graph::<_, usize>::new();
+        let a = g.add_node("a");
+        let e0 = g.add_edge(a, a, 2);
+        let e1 = g.add_edge(a, a, 2);
         let mut count = 0;
-        let tree = unfurl(&g, a, |_, _| 2, |n| {
-            count += 1;
-            *n + count
-        }, |e| *e + 1);
-        println!("{:?}", Dot::with_config(&tree, &[Config::EdgeIndexLabel]));
+        let tree = unfurl(&g, a, |g, e| g[e] as u8, |n| n.clone(), |e| e.clone());
+        // println!("{:?}", Dot::with_config(&g, &[]));
+        // println!("{}", &g);
+        println!("{}", Dot::with_config(&tree, &[]));
 }

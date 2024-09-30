@@ -31,7 +31,8 @@ use std::{
 /// traversed at most two times on any path. So for a simple graph with one node
 /// and a self-edge, the RDFS will return that edge twice. This allows one to
 /// intentionally traverse recurrent graphs like those present in
-/// [Sims](https://www.karlsims.com/papers/siggraph94.pdf)' work without traversing infinitely.
+/// [Sims](https://www.karlsims.com/papers/siggraph94.pdf)' work without
+/// traversing infinitely.
 ///
 /// `Rdfs` is not recursive.
 ///
@@ -45,12 +46,11 @@ use std::{
 ///
 /// let mut graph = Graph::<isize,isize>::new();
 /// let a = graph.add_node(0);
-/// let x = graph.add_edge(a, a, 0);
+/// let e = graph.add_edge(a, a, 0);
 /// let mut cdfs = Rdfs::new(&graph, a, |_, _| 2);
 ///
 /// while let Some(n) = cdfs.next(&graph) {
-///     // we can access `graph` mutably here still
-///     // XXX: For some reason this is broken. Says there's a borrow problem.
+///     // We can access `graph` mutably here still.
 ///     graph[n] += 1;
 /// }
 ///
