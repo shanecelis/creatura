@@ -14,7 +14,7 @@ use std::{
     ops::Index,
 };
 
-/// An cyclic depth first search (CDFS) of a graph.
+/// An recurrent depth first search (RDFS) of a graph.
 ///
 /// The traversal starts at the edges of a given node and only traverses nodes
 /// reachable from it. It returns the current edge rather than the current node.
@@ -29,38 +29,38 @@ use std::{
 ///
 /// The interesting case is where `edge_permits = |_, _| 2` now edges will be
 /// traversed at most two times on any path. So for a simple graph with one node
-/// and a self-edge, the CDFS will return that edge twice. This allows one to
-/// intentionally traverse cyclic graphs like those present in
+/// and a self-edge, the RDFS will return that edge twice. This allows one to
+/// intentionally traverse recurrent graphs like those present in
 /// [Sims](https://www.karlsims.com/papers/siggraph94.pdf)' work without traversing infinitely.
 ///
-/// `Cdfs` is not recursive.
+/// `Rdfs` is not recursive.
 ///
-/// `Cdfs` does not itself borrow the graph, and because of this you can run
+/// `Rdfs` does not itself borrow the graph, and because of this you can run
 /// a traversal over a graph while still retaining mutable access to it, if you
 /// use it like the following example:
 ///
 /// ```
 /// use petgraph::Graph;
-/// use muscley_wusaley::Cdfs;
+/// use muscley_wusaley::Rdfs;
 ///
 /// let mut graph = Graph::<isize,isize>::new();
 /// let a = graph.add_node(0);
 /// let x = graph.add_edge(a, a, 0);
-/// let mut cdfs = Cdfs::new(&graph, a, |_, _| 2);
+/// let mut cdfs = Rdfs::new(&graph, a, |_, _| 2);
 ///
-/// while let Some(e) = cdfs.next(&graph) {
+/// while let Some(n) = cdfs.next(&graph) {
 ///     // we can access `graph` mutably here still
 ///     // XXX: For some reason this is broken. Says there's a borrow problem.
-///     graph[e] += 1;
+///     graph[n] += 1;
 /// }
 ///
-/// assert_eq!(graph[x], 2);
+/// assert_eq!(graph[a], 3);
 /// ```
 ///
 /// **Note:** The algorithm may not behave correctly if nodes are removed
 /// during iteration. It may not necessarily visit added nodes or edges.
 #[derive(Clone)]
-pub struct Cdfs<E, N, G, F> {
+pub struct Rdfs<E, N, G, F> {
     /// The stack of edges to visit
     pub stack: Vec<(E, usize)>,
     /// The path of edge for last visit
@@ -68,10 +68,11 @@ pub struct Cdfs<E, N, G, F> {
     /// Closure that returns the number of traversals permitted for an edge for
     /// any path.
     pub edge_permits: F,
-    pub node: PhantomData<(N, G)>,
+    pub start: Option<N>,
+    pub node: PhantomData<G>,
 }
 
-impl<E, N, G, F> Cdfs<E, N, G, F>
+impl<E, N, G, F> Rdfs<E, N, G, F>
 where
     E: Copy + Eq,
     N: Copy + Eq,
@@ -79,16 +80,17 @@ where
     G: GraphBase,
     for<'a> &'a G: Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
 {
-    /// Create a new `Cdfs`, and put `start`'s edges on the stack of edges to visit.
+    /// Create a new `Rdfs`, and put `start`'s edges on the stack of edges to visit.
     pub fn new(graph: &G, start: N, edge_permits: F) -> Self {
-        let mut stack = vec![];
-        for succ in graph.edges_directed(start, Direction::Outgoing) {
-            if edge_permits(graph, succ.id()) > 0 {
-                stack.push((succ.id(), 0));
-            }
-        }
-        Cdfs {
-            stack,
+        // let mut stack = vec![];
+        // for succ in graph.edges_directed(start, Direction::Outgoing) {
+        //     if edge_permits(graph, succ.id()) > 0 {
+        //         stack.push((succ.id(), 0));
+        //     }
+        // }
+        Rdfs {
+            stack: Vec::new(),
+            start: Some(start),
             path: Vec::new(),
             edge_permits,
             node: PhantomData,
@@ -96,7 +98,15 @@ where
     }
 
     /// Return the next edge in the cdfs, or `None` if the traversal is done.
-    pub fn next(&mut self, graph: &G) -> Option<E> {
+    pub fn next(&mut self, graph: &G) -> Option<N> {
+        if let Some(start) = self.start.take() {
+            for succ in graph.edges_directed(start, Direction::Outgoing) {
+                if (self.edge_permits)(graph, succ.id()) > 0 {
+                    self.stack.push((succ.id(), 0));
+                }
+            }
+            return Some(start);
+        }
         if let Some((edge, depth)) = self.stack.pop() {
             let _ = self.path.drain(depth..);
             self.path.push(edge);
@@ -110,8 +120,10 @@ where
                         self.stack.push((succ, depth + 1));
                     }
                 }
+                Some(target)
+            } else {
+                panic!("edge has no end points");
             }
-            Some(edge)
         } else {
             self.path.clear();
             None
@@ -148,11 +160,10 @@ where
     Ty: EdgeType,
     Ix: IndexType,
 {
-    let mut cdfs = Cdfs::new(graph, start, permits);
+    let mut cdfs = Rdfs::new(graph, start, permits);
     let mut unfurled = Graph::<N2, E2, Ty, Ix>::default();
     let mut new_nodes: HashMap<u64, NodeIndex<Ix>> = HashMap::new();
 
-    // todo!("Fix this using the hash of the path");
     let mut get_or_insert_node = |node: NodeIndex<Ix>, hash: u64, unfurled: &mut Graph<N2, E2, Ty, Ix>| {
         if let Some(node) = new_nodes.get(&hash) {
             *node
@@ -162,7 +173,8 @@ where
             n
         }
     };
-    while let Some(edge) = cdfs.next(graph) {
+    while let Some(node) = cdfs.next(graph) {
+        if let Some(&edge) = cdfs.path.last() {
         let depth = cdfs.depth().saturating_sub(1);
         if let Some((source, target)) = graph.edge_endpoints(edge) {
             let mut hash = DefaultHasher::new();
@@ -176,6 +188,7 @@ where
             let target = get_or_insert_node(target, hash.finish(), &mut unfurled);
             unfurled.add_edge(source, target, edge_fn(&graph[edge]));
             //
+        }
         }
     }
     unfurled
@@ -203,7 +216,8 @@ mod test {
     fn node1() {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
-        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
+        let mut dfs = Rdfs::new(&g, a, |_, _| 1);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -212,7 +226,8 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(&g, a, |_, _| 0);
+        let mut dfs = Rdfs::new(&g, a, |_, _| 0);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -231,8 +246,9 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let e1 = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
-        assert_eq!(dfs.next(&g), Some(e1));
+        let mut dfs = Rdfs::new(&g, a, |_, _| 1);
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -241,9 +257,10 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let e1 = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(&g, a, |_, _| 2);
-        assert_eq!(dfs.next(&g), Some(e1));
-        assert_eq!(dfs.next(&g), Some(e1));
+        let mut dfs = Rdfs::new(&g, a, |_, _| 2);
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -252,10 +269,11 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let e1 = g.add_edge(a, a, ());
-        let mut dfs = Cdfs::new(&g, a, |_, _| 3);
-        assert_eq!(dfs.next(&g), Some(e1));
-        assert_eq!(dfs.next(&g), Some(e1));
-        assert_eq!(dfs.next(&g), Some(e1));
+        let mut dfs = Rdfs::new(&g, a, |_, _| 3);
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -271,23 +289,26 @@ mod test {
         let e1 = g.add_edge(b, c, ());
         let e2 = g.add_edge(b, d, ());
         let e3 = g.add_edge(a, e, ());
-        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
+        let mut dfs = Rdfs::new(&g, a, |_, _| 1);
         // assert_eq!(dfs.next(&g), Some(e0));
         // assert_eq!(dfs.path, vec![e0]);
         //
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.stack, vec![(e3, 0), (e0, 0)]);
-        assert_eq!(dfs.next(&g), Some(e0));
-        assert_eq!(dfs.path, vec![e0]);
+        assert_eq!(dfs.path, vec![]);
 
+        assert_eq!(dfs.next(&g), Some(b));
         assert_eq!(dfs.stack, vec![(e3, 0), (e2, 1), (e1, 1)]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.path, vec![e0]);
+        assert_eq!(dfs.next(&g), Some(c));
         assert_eq!(dfs.path, vec![e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e2));
+        assert_eq!(dfs.next(&g), Some(d));
         assert_eq!(dfs.path, vec![e0, e2]);
-        assert_eq!(dfs.next(&g), Some(e3));
+        assert_eq!(dfs.next(&g), Some(e));
         assert_eq!(dfs.path, vec![e3]);
         assert_eq!(dfs.next(&g), None);
         assert_eq!(dfs.path, vec![]);
+        assert_eq!(dfs.next(&g), None);
     }
 
     #[test]
@@ -299,18 +320,19 @@ mod test {
         assert_eq!(g[e0], 0);
         assert_eq!(g[e1], 1);
         assert_ne!(e0, e1);
-        let mut dfs = Cdfs::new(&g, a, |_, _| 1);
+        let mut dfs = Rdfs::new(&g, a, |_, _| 1);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.stack, vec![(e1, 0), (e0, 0)]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.path, vec![]);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.stack, vec![(e1, 0), (e1, 1)], "wrong path");
         assert_eq!(dfs.path, vec![e0]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e0]);
-        assert_eq!(dfs.next(&g), None);
     }
 
     #[test]
@@ -322,42 +344,44 @@ mod test {
         assert_eq!(g[e0], 0);
         assert_eq!(g[e1], 1);
         assert_ne!(e0, e1);
-        let mut dfs = Cdfs::new(&g, a, |_, _| 2);
-        assert_eq!(dfs.next(&g), Some(e0));
+        let mut dfs = Rdfs::new(&g, a, |_, _| 2);
+        assert_eq!(dfs.next(&g), Some(a));
+        assert_eq!(dfs.path, vec![]);
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e0]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e0, e1, e1]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e1, e0]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e1, e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e1, e1]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e0, e1, e1, e0]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e0]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e0, e0]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e0, e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e0, e1]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e0, e1, e0]);
-        assert_eq!(dfs.next(&g), Some(e1));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e1]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![e1, e1, e0]);
-        assert_eq!(dfs.next(&g), Some(e0));
+        assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
 
@@ -391,17 +415,17 @@ mod test {
 
     #[test]
     fn cdfs_doc_test() {
-        use crate::Cdfs;
+        use crate::Rdfs;
         use petgraph::Graph;
 
         let mut graph = Graph::<isize, isize>::new();
         let a = graph.add_node(0);
         let x = graph.add_edge(a, a, 0);
 
-        let mut cdfs = Cdfs::new(&graph, a, |_, _| 2);
-        while let Some(e) = cdfs.next(&graph) {
-            graph[e] += 1;
+        let mut cdfs = Rdfs::new(&graph, a, |_, _| 2);
+        while let Some(n) = cdfs.next(&graph) {
+            graph[n] += 1;
         }
-        assert_eq!(graph[x], 2);
+        assert_eq!(graph[a], 3);
     }
 }
