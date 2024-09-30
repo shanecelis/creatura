@@ -150,26 +150,30 @@ where
 {
     let mut cdfs = Cdfs::new(graph, start, permits);
     let mut unfurled = Graph::<N2, E2, Ty, Ix>::default();
-    let mut new_nodes: HashMap<(NodeIndex<Ix>, Option<EdgeIndex<Ix>>, usize), NodeIndex<Ix>> = HashMap::new();
+    let mut new_nodes: HashMap<u64, NodeIndex<Ix>> = HashMap::new();
 
-    todo!("Fix this using the hash of the path");
-    let mut get_or_insert_node = |key: (NodeIndex<Ix>, Option<EdgeIndex<Ix>>, usize), unfurled: &mut Graph<N2, E2, Ty, Ix>| {
-        if let Some(node) = new_nodes.get(&key) {
+    // todo!("Fix this using the hash of the path");
+    let mut get_or_insert_node = |node: NodeIndex<Ix>, hash: u64, unfurled: &mut Graph<N2, E2, Ty, Ix>| {
+        if let Some(node) = new_nodes.get(&hash) {
             *node
         } else {
-            let n = unfurled.add_node(node_fn(&graph[key.0]));
-            new_nodes.insert(key, n);
-            new_nodes.insert((key.0, None, key.2), n);
+            let n = unfurled.add_node(node_fn(&graph[node]));
+            new_nodes.insert(hash, n);
             n
         }
     };
     while let Some(edge) = cdfs.next(graph) {
         let depth = cdfs.depth().saturating_sub(1);
         if let Some((source, target)) = graph.edge_endpoints(edge) {
+            let mut hash = DefaultHasher::new();
+            for i in 0..depth {
+                cdfs.path[i].hash(&mut hash);
+            }
             // Copy the source, Luke!
             // let source = get_or_insert_node((source, cdfs.path.iter().nth(depth.saturating_sub(1)).copied(), depth), &mut unfurled);
-            let source = get_or_insert_node((source, None, depth), &mut unfurled);
-            let target = get_or_insert_node((target, Some(edge), depth + 1), &mut unfurled);
+            let source = get_or_insert_node(source, hash.finish(), &mut unfurled);
+            cdfs.path.last().unwrap().hash(&mut hash);
+            let target = get_or_insert_node(target, hash.finish(), &mut unfurled);
             unfurled.add_edge(source, target, edge_fn(&graph[edge]));
             //
         }
@@ -181,6 +185,19 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn check_hash_assumptions() {
+        let mut hash = DefaultHasher::new();
+        0.hash(&mut hash);
+        1.hash(&mut hash);
+        let a = hash.finish();
+        let mut hash = DefaultHasher::new();
+        0.hash(&mut hash);
+        1.hash(&mut hash);
+        let b = hash.finish();
+        assert_eq!(a, b);
+    }
 
     #[test]
     fn node1() {
