@@ -1,7 +1,6 @@
 use petgraph::{
-    prelude::*,
     Graph,
-    dot::{Dot, Config}
+    dot::Dot
 };
 use muscley_wusaley::*;
 
@@ -13,10 +12,9 @@ use muscley_wusaley::*;
 fn main() {
         let mut g = Graph::<_, usize>::new();
         let a = g.add_node("a");
-        let e0 = g.add_edge(a, a, 2);
-        let e1 = g.add_edge(a, a, 2);
-        let mut count = 0;
-        let tree = unfurl(&g, a, |g, e| g[e] as u8, |n| n.clone(), |e| e.clone());
+        let _e0 = g.add_edge(a, a, 2);
+        let _e1 = g.add_edge(a, a, 2);
+        let tree = unfurl(&g, a, |g, e| g[e] as u8, |n| n.to_owned(), |e| *e);
         // println!("{:?}", Dot::with_config(&g, &[]));
         // println!("{}", &g);
         println!("{}", Dot::with_config(&tree, &[]));

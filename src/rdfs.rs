@@ -81,7 +81,7 @@ where
     for<'a> &'a G: Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
 {
     /// Create a new `Rdfs`, and put `start`'s edges on the stack of edges to visit.
-    pub fn new(graph: &G, start: N, edge_permits: F) -> Self {
+    pub fn new(_graph: &G, start: N, edge_permits: F) -> Self {
         // let mut stack = vec![];
         // for succ in graph.edges_directed(start, Direction::Outgoing) {
         //     if edge_permits(graph, succ.id()) > 0 {
@@ -173,7 +173,7 @@ where
             n
         }
     };
-    while let Some(node) = cdfs.next(graph) {
+    while let Some(_node) = cdfs.next(graph) {
         if let Some(&edge) = cdfs.path.last() {
         let depth = cdfs.depth().saturating_sub(1);
         if let Some((source, target)) = graph.edge_endpoints(edge) {
@@ -236,7 +236,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let g2 = unfurl(&g, a, |_, _| 2, |n| n.clone(), |e| e.clone());
+        let g2 = unfurl(&g, a, |_, _| 2, |n| *n, |e| *e);
         assert_eq!(g2.node_count(), 3);
         assert_eq!(g2.edge_count(), 2);
     }
@@ -245,7 +245,7 @@ mod test {
     fn node_cycle1() {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
-        let e1 = g.add_edge(a, a, ());
+        let _e1 = g.add_edge(a, a, ());
         let mut dfs = Rdfs::new(&g, a, |_, _| 1);
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -256,7 +256,7 @@ mod test {
     fn node_cycle2() {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
-        let e1 = g.add_edge(a, a, ());
+        let _e1 = g.add_edge(a, a, ());
         let mut dfs = Rdfs::new(&g, a, |_, _| 2);
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -268,7 +268,7 @@ mod test {
     fn node_cycle3() {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
-        let e1 = g.add_edge(a, a, ());
+        let _e1 = g.add_edge(a, a, ());
         let mut dfs = Rdfs::new(&g, a, |_, _| 3);
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -390,8 +390,8 @@ mod test {
         use petgraph::dot::{Dot, Config};
         let mut g = Graph::<isize, isize>::new();
         let a = g.add_node(0);
-        let e0 = g.add_edge(a, a, 0);
-        let e1 = g.add_edge(a, a, 1);
+        let _e0 = g.add_edge(a, a, 0);
+        let _e1 = g.add_edge(a, a, 1);
         let tree = unfurl(&g, a, |_, _| 2, |n| *n, |e| *e);
         eprintln!("{:?}", Dot::with_config(&tree, &[Config::EdgeNoLabel]));
     }
@@ -420,7 +420,7 @@ mod test {
 
         let mut graph = Graph::<isize, isize>::new();
         let a = graph.add_node(0);
-        let x = graph.add_edge(a, a, 0);
+        let _x = graph.add_edge(a, a, 0);
 
         let mut cdfs = Rdfs::new(&graph, a, |_, _| 2);
         while let Some(n) = cdfs.next(&graph) {
