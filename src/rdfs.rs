@@ -83,7 +83,7 @@ pub enum Permit {
 
 impl<N, E, G, F> Rdfs<N, E, G, F>
 where
-    E: Copy + Eq,
+    E: Copy + Eq + Hash,
     N: Copy + Eq,
     F: Fn(&G, N, E) -> Permit,
     G: GraphBase,
@@ -169,6 +169,21 @@ where
     pub fn depth(&self) -> usize {
         self.path.len()
     }
+
+    /// Return a hash of path entries [0..n-1] and [0..n], like having a hash
+    /// for the parent and current node. Useful for associating a recurrent node
+    /// with a individuated path identity.
+    pub fn hash_path(&self) -> (u64, u64) {
+        let mut hash = DefaultHasher::new();
+        let depth = self.path.len().saturating_sub(1);
+        for i in 0..depth {
+            self.path[i].hash(&mut hash);
+        }
+        let parent_hash = hash.finish();
+        self.path.last().map(|e| e.hash(&mut hash));
+        let child_hash = hash.finish();
+        (parent_hash, child_hash)
+    }
 }
 
 /// Get the nodes of an edge.
@@ -189,7 +204,8 @@ where
     }
 }
 
-pub fn unfurl<N, E, Ty, Ix, N2, E2>(
+/// Given a graph, construct its RDFS tree.
+pub fn reify<N, E, Ty, Ix, N2, E2>(
     graph: &Graph<N, E, Ty, Ix>,
     start: NodeIndex<Ix>,
     permits: impl Fn(&Graph<N, E, Ty, Ix>, NodeIndex<Ix>, EdgeIndex<Ix>) -> Permit,
@@ -216,16 +232,11 @@ where
         };
     while let Some(_node) = rdfs.next(graph) {
         if let Some(&edge) = rdfs.path.last() {
-            let depth = rdfs.depth().saturating_sub(1);
             if let Some((source, target)) = graph.edge_endpoints(edge) {
-                let mut hash = DefaultHasher::new();
-                for i in 0..depth {
-                    rdfs.path[i].hash(&mut hash);
-                }
+                let (source_hash, target_hash) = rdfs.hash_path();
                 // Copy the source, Luke!
-                let source = get_or_insert_node(source, hash.finish(), &mut unfurled);
-                rdfs.path.last().unwrap().hash(&mut hash);
-                let target = get_or_insert_node(target, hash.finish(), &mut unfurled);
+                let source = get_or_insert_node(source, source_hash, &mut unfurled);
+                let target = get_or_insert_node(target, target_hash, &mut unfurled);
                 unfurled.add_edge(source, target, edge_fn(&graph, edge));
             }
         }
@@ -274,7 +285,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let g2 = unfurl(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
+        let g2 = reify(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
         assert_eq!(g2.node_count(), 3);
         assert_eq!(g2.edge_count(), 2);
     }
@@ -430,7 +441,7 @@ mod test {
         let a = g.add_node(0);
         let _e0 = g.add_edge(a, a, 0);
         let _e1 = g.add_edge(a, a, 1);
-        let tree = unfurl(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
+        let tree = reify(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
         eprintln!("{:?}", Dot::with_config(&tree, &[Config::EdgeNoLabel]));
     }
 

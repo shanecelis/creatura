@@ -88,14 +88,6 @@ fn setup(
         position: Vector::Y,
         rotation: Quaternion::IDENTITY,
     };
-    let p = Vector3::new(1., 2., 1.);
-    let mut child = Part {
-        extents: Vector::new(0.5, 0.5, 0.5),
-        position: p,
-        rotation: Quaternion::IDENTITY,
-    };
-    let _ = child.stamp(&parent);
-
     let pinks = [Color::srgb_u8(253, 53, 176)];
 
     // Root cube
@@ -168,34 +160,20 @@ fn setup(
                 j.swing_axis = Vector::Y;
                 j.twist_axis = Vector::X;
                 j
-            }, // .with_angular_velocity_damping(1.0)
-               // .with_compliance(1.0 / 1000.0),
+            },
         );
         let a1 = parent.extents * Vector::new(0.5, 0.5, 0.0);
         let a2 = child.extents * Vector::new(0.5, 0.5, 0.0);
 
         let rest_length = (parent.from_local(a1) - child.from_local(a2)).length();
 
-        // let length_scale = 0.4;
-
-        // let sample_rate = 44_100.0; // This should come from somewhere else.
-        // let dsp = DspSource::new(white_noise_mono,
-        //                          sample_rate,
-        //                          SourceType::Dynamic);
-
-        // let dsp = dsp_manager
-        //             .get_graph(white_noise)
-        //             .unwrap()
-        //             // HACK: This doesn't feel right.
-        //             .clone();
         let muscle_id = commands
             .spawn(
                 DistanceJoint::new(parent_cube, child_cube)
                     .with_local_anchor_1(a1)
                     .with_local_anchor_2(a2)
                     .with_rest_length(rest_length)
-                    // .with_limits(rest_length * length_scale, rest_length * (1.0 + length_scale))
-                    // .with_limits(0.0, 2.0 * rest_length)
+                    // .with_limits(rest_length, rest_length)
                     // .with_linear_velocity_damping(0.1)
                     // .with_angular_velocity_damping(1.0)
                     .with_compliance(1.0 / 100.0),

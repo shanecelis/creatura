@@ -164,8 +164,6 @@ pub struct NervousSystem {
 pub struct SpringOscillator {
     pub freq: Scalar,
     pub phase: Scalar,
-    // pub min: Scalar,
-    // pub max: Scalar,
 }
 
 impl SpringOscillator {
@@ -281,6 +279,8 @@ pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vect
     }
     results
 }
+
+// pub fn construct_phenotype(genotype: &Graph<Part,
 
 #[derive(PartialEq, Clone, Copy)]
 enum PartParity {

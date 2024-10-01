@@ -34,8 +34,8 @@ fn main() {
     let a = g.add_node("a");
     let _e0 = g.add_edge(a, a, (0, 2).into());
     let _e1 = g.add_edge(a, a, (1, 2).into());
-    // let tree = unfurl(&g, a, |g, e| Permit::EdgeCount(g[e].repeat as u8), |g, n| g[n].to_owned(), |g,e| e.index());
-    let tree = unfurl(
+    // let tree = reify(&g, a, |g, e| Permit::EdgeCount(g[e].repeat as u8), |g, n| g[n].to_owned(), |g,e| e.index());
+    let tree = reify(
         &g,
         a,
         |_g, _n, _e| Permit::NodeCount(4),

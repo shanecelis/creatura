@@ -2,7 +2,7 @@ use petgraph::prelude::*;
 use super::*;
 
 #[derive(Clone, Debug, Copy)]
-struct GraphEdge {
+struct PartEdge {
     // joint_type:
     parent_attach: Vector3,
     child_attach: Vector3,
@@ -10,7 +10,7 @@ struct GraphEdge {
     iteration_count: u8,
 }
 
-fn snake_graph(part_count: u8) -> DiGraph<Part, GraphEdge> {
+fn snake_graph(part_count: u8) -> DiGraph<Part, PartEdge> {
     let part = Part {
         extents: Vector::new(1., 1., 1.),
         position: Vector::ZERO,
@@ -19,7 +19,7 @@ fn snake_graph(part_count: u8) -> DiGraph<Part, GraphEdge> {
     let mut graph = DiGraph::new();
     let index = graph.add_node(part);
     graph.add_edge(index, index,
-        GraphEdge {
+        PartEdge {
             parent_attach: Vector3::X,
             child_attach: -Vector3::X,
             child_scale: 0.6 * Vector3::ONE,
@@ -28,12 +28,12 @@ fn snake_graph(part_count: u8) -> DiGraph<Part, GraphEdge> {
     graph
 }
 
-fn unfurl_graph(graph: &DiGraph<Part, GraphEdge>) -> DiGraph<Part, ()> {
+fn unfurl_graph(graph: &DiGraph<Part, PartEdge>) -> DiGraph<Part, ()> {
 
 
 }
 
-pub fn make_graph(graph: &DiGraph<Part,GraphEdge>,
+pub fn make_graph(graph: &DiGraph<Part,PartEdge>,
                   root: petgraph::prelude::NodeIndex<u32>,
                   mut meshes: ResMut<Assets<Mesh>>,
                   pbr: PbrBundle,
