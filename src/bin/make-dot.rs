@@ -38,7 +38,7 @@ fn main() {
     let tree = unfurl(
         &g,
         a,
-        |_g, _e| Permit::NodeCount(4),
+        |_g, _n, _e| Permit::NodeCount(4),
         |g, n| g[n].to_owned(),
         |_g, e| e.index(),
     );

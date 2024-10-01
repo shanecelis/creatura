@@ -22,12 +22,12 @@ use std::{
 /// Instead of keeping track of visited nodes, it keeps track of the current
 /// edge path. It takes a closure `edge_permits` that declares how many
 /// traversals of an edge are permitted for any given path. If `edge_permits =
-/// |_, _| Permit::EdgeCount(1` it behaves similarly to a conventional DFS.
+/// |_, _, _| Permit::EdgeCount(1` it behaves similarly to a conventional DFS.
 ///
-/// If `edge_permits = |_, _| Permit::EdgeCount(0` it will return the start node then `None` on
+/// If `edge_permits = |_, _, _| Permit::EdgeCount(0` it will return the start node then `None` on
 /// the call to `next()` since it will not traverse any edges.
 ///
-/// The interesting case is where `edge_permits = |_, _| Permit::EdgeCount(2` now edges will be
+/// The interesting case is where `edge_permits = |_, _, _| Permit::EdgeCount(2` now edges will be
 /// traversed at most two times on any path. So for a simple graph with one node
 /// and a self-edge, the RDFS will return that node three times: the start node,
 /// then follow the self-edge twice. This allows one to intentionally traverse
@@ -48,7 +48,7 @@ use std::{
 /// let mut graph = Graph::<isize,isize>::new();
 /// let a = graph.add_node(0);
 /// let e = graph.add_edge(a, a, 0);
-/// let mut rdfs = Rdfs::new(&graph, a, |_, _| Permit::EdgeCount(2));
+/// let mut rdfs = Rdfs::new(&graph, a, |_, _, _| Permit::EdgeCount(2));
 ///
 /// while let Some(n) = rdfs.next(&graph) {
 ///     // We can access `graph` mutably here still.
@@ -85,7 +85,7 @@ impl<N, E, G, F> Rdfs<N, E, G, F>
 where
     E: Copy + Eq,
     N: Copy + Eq,
-    F: Fn(&G, E) -> Permit,
+    F: Fn(&G, N, E) -> Permit,
     G: GraphBase,
     for<'a> &'a G: Visitable<NodeId = N, EdgeId = E> + IntoEdgesDirected + EdgeEndpoints<N, E>,
 {
@@ -111,7 +111,7 @@ where
         if let Some(start) = self.start.take() {
             for succ in graph.edges_directed(start, Direction::Outgoing) {
                 let (Permit::EdgeCount(allowance) | Permit::NodeCount(allowance)) =
-                    (self.edge_permits)(graph, succ.id());
+                    (self.edge_permits)(graph, start, succ.id());
                 if allowance > 0 {
                     self.stack.push((succ.id(), 0));
                 }
@@ -121,10 +121,10 @@ where
         if let Some((edge, depth)) = self.stack.pop() {
             let _ = self.path.drain(depth..);
             self.path.push(edge);
-            if let Some((_, target)) = graph.edge_endpoints(edge) {
-                for succ in graph.edges_directed(target, Direction::Outgoing) {
-                    let succ = succ.id();
-                    match (self.edge_permits)(graph, succ) {
+            if let Some((_, node)) = graph.edge_endpoints(edge) {
+                for succ_ref in graph.edges_directed(node, Direction::Outgoing) {
+                    let succ = succ_ref.id();
+                    match (self.edge_permits)(graph, succ_ref.target(), succ) {
                         Permit::EdgeCount(allowance) => {
                             if (self.path.iter().filter(|e| succ == **e).count() as u8)
                                 <= allowance.saturating_sub(1)
@@ -134,29 +134,28 @@ where
                         }
 
                         Permit::NodeCount(allowance) => {
-                            if let Some((_, target)) = graph.edge_endpoints(succ) {
-                                let mut source_count =
-                                    self.path
-                                        .iter()
-                                        .filter(|e| graph.edge_endpoints(**e).map(|(_, t)| t == target).unwrap_or(false))
-                                        .count() as u8;
-                                // check last target
-                                if self
-                                    .path
-                                    .last()
-                                    .and_then(|e| graph.edge_endpoints(*e).map(|(_, t)| t == target))
-                                    .unwrap_or(false)
-                                {
-                                    source_count += 1;
-                                }
-                                if source_count <= allowance.saturating_sub(1) {
-                                    self.stack.push((succ, depth + 1));
-                                }
+                            let target = succ_ref.target();
+                            let mut source_count =
+                                self.path
+                                    .iter()
+                                    .filter(|e| graph.edge_endpoints(**e).map(|(_, t)| t == target).unwrap_or(false))
+                                    .count() as u8;
+                            // check last target
+                            if self
+                                .path
+                                .last()
+                                .and_then(|e| graph.edge_endpoints(*e).map(|(_, t)| t == target))
+                                .unwrap_or(false)
+                            {
+                                source_count += 1;
+                            }
+                            if source_count <= allowance.saturating_sub(1) {
+                                self.stack.push((succ, depth + 1));
                             }
                         }
                     }
                 }
-                Some(target)
+                Some(node)
             } else {
                 panic!("edge has no end points");
             }
@@ -193,7 +192,7 @@ where
 pub fn unfurl<N, E, Ty, Ix, N2, E2>(
     graph: &Graph<N, E, Ty, Ix>,
     start: NodeIndex<Ix>,
-    permits: impl Fn(&Graph<N, E, Ty, Ix>, EdgeIndex<Ix>) -> Permit,
+    permits: impl Fn(&Graph<N, E, Ty, Ix>, NodeIndex<Ix>, EdgeIndex<Ix>) -> Permit,
     mut node_fn: impl FnMut(&Graph<N, E, Ty, Ix>, NodeIndex<Ix>) -> N2,
     mut edge_fn: impl FnMut(&Graph<N, E, Ty, Ix>, EdgeIndex<Ix>) -> E2,
 ) -> Graph<N2, E2, Ty, Ix>
@@ -255,7 +254,7 @@ mod test {
     fn node1() {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(1));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(1));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
@@ -265,7 +264,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(0));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(0));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
     }
@@ -275,7 +274,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let g2 = unfurl(&g, a, |_, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
+        let g2 = unfurl(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
         assert_eq!(g2.node_count(), 3);
         assert_eq!(g2.edge_count(), 2);
     }
@@ -285,7 +284,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _e1 = g.add_edge(a, a, ());
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(1));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(1));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), None);
@@ -296,7 +295,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _e1 = g.add_edge(a, a, ());
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(2));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(2));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -308,7 +307,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _e1 = g.add_edge(a, a, ());
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(3));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(3));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.next(&g), Some(a));
@@ -328,7 +327,7 @@ mod test {
         let e1 = g.add_edge(b, c, ());
         let e2 = g.add_edge(b, d, ());
         let e3 = g.add_edge(a, e, ());
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(1));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(1));
         // assert_eq!(dfs.next(&g), Some(e0));
         // assert_eq!(dfs.path, vec![e0]);
         //
@@ -359,7 +358,7 @@ mod test {
         assert_eq!(g[e0], 0);
         assert_eq!(g[e1], 1);
         assert_ne!(e0, e1);
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(1));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(1));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.stack, vec![(e1, 0), (e0, 0)]);
         assert_eq!(dfs.path, vec![]);
@@ -383,7 +382,7 @@ mod test {
         assert_eq!(g[e0], 0);
         assert_eq!(g[e1], 1);
         assert_ne!(e0, e1);
-        let mut dfs = Rdfs::new(&g, a, |_, _| Permit::EdgeCount(2));
+        let mut dfs = Rdfs::new(&g, a, |_, _, _| Permit::EdgeCount(2));
         assert_eq!(dfs.next(&g), Some(a));
         assert_eq!(dfs.path, vec![]);
         assert_eq!(dfs.next(&g), Some(a));
@@ -431,7 +430,7 @@ mod test {
         let a = g.add_node(0);
         let _e0 = g.add_edge(a, a, 0);
         let _e1 = g.add_edge(a, a, 1);
-        let tree = unfurl(&g, a, |_, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
+        let tree = unfurl(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
         eprintln!("{:?}", Dot::with_config(&tree, &[Config::EdgeNoLabel]));
     }
 
@@ -461,7 +460,7 @@ mod test {
         let a = graph.add_node(0);
         let _x = graph.add_edge(a, a, 0);
 
-        let mut rdfs = Rdfs::new(&graph, a, |_, _| Permit::EdgeCount(2));
+        let mut rdfs = Rdfs::new(&graph, a, |_, _, _| Permit::EdgeCount(2));
         while let Some(n) = rdfs.next(&graph) {
             graph[n] += 1;
         }
