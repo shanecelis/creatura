@@ -155,7 +155,13 @@ where
 }
 
 
-pub fn unfurl<N, E, Ty, Ix, N2, E2>(graph: &Graph<N, E, Ty, Ix>, start: NodeIndex<Ix>, permits: impl Fn(&Graph<N, E, Ty, Ix>, EdgeIndex<Ix>) -> u8, mut node_fn: impl FnMut(&N) -> N2, mut edge_fn: impl FnMut(&E) -> E2) -> Graph<N2, E2, Ty, Ix>
+pub fn unfurl<N, E, Ty, Ix, N2, E2>(
+    graph: &Graph<N, E, Ty, Ix>,
+    start: NodeIndex<Ix>,
+    permits: impl Fn(&Graph<N, E, Ty, Ix>, EdgeIndex<Ix>) -> u8,
+    mut node_fn: impl FnMut(&Graph<N, E, Ty, Ix>, NodeIndex<Ix>) -> N2,
+    mut edge_fn: impl FnMut(&Graph<N, E, Ty, Ix>, EdgeIndex<Ix>) -> E2)
+    -> Graph<N2, E2, Ty, Ix>
 where
     Ty: EdgeType,
     Ix: IndexType,
@@ -168,27 +174,25 @@ where
         if let Some(node) = new_nodes.get(&hash) {
             *node
         } else {
-            let n = unfurled.add_node(node_fn(&graph[node]));
+            let n = unfurled.add_node(node_fn(&graph, node));
             new_nodes.insert(hash, n);
             n
         }
     };
     while let Some(_node) = cdfs.next(graph) {
         if let Some(&edge) = cdfs.path.last() {
-        let depth = cdfs.depth().saturating_sub(1);
-        if let Some((source, target)) = graph.edge_endpoints(edge) {
-            let mut hash = DefaultHasher::new();
-            for i in 0..depth {
-                cdfs.path[i].hash(&mut hash);
+            let depth = cdfs.depth().saturating_sub(1);
+            if let Some((source, target)) = graph.edge_endpoints(edge) {
+                let mut hash = DefaultHasher::new();
+                for i in 0..depth {
+                    cdfs.path[i].hash(&mut hash);
+                }
+                // Copy the source, Luke!
+                let source = get_or_insert_node(source, hash.finish(), &mut unfurled);
+                cdfs.path.last().unwrap().hash(&mut hash);
+                let target = get_or_insert_node(target, hash.finish(), &mut unfurled);
+                unfurled.add_edge(source, target, edge_fn(&graph, edge));
             }
-            // Copy the source, Luke!
-            // let source = get_or_insert_node((source, cdfs.path.iter().nth(depth.saturating_sub(1)).copied(), depth), &mut unfurled);
-            let source = get_or_insert_node(source, hash.finish(), &mut unfurled);
-            cdfs.path.last().unwrap().hash(&mut hash);
-            let target = get_or_insert_node(target, hash.finish(), &mut unfurled);
-            unfurled.add_edge(source, target, edge_fn(&graph[edge]));
-            //
-        }
         }
     }
     unfurled
@@ -236,7 +240,7 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let g2 = unfurl(&g, a, |_, _| 2, |n| *n, |e| *e);
+        let g2 = unfurl(&g, a, |_, _| 2, |g, n| g[n], |g, e| g[e]);
         assert_eq!(g2.node_count(), 3);
         assert_eq!(g2.edge_count(), 2);
     }
@@ -392,7 +396,7 @@ mod test {
         let a = g.add_node(0);
         let _e0 = g.add_edge(a, a, 0);
         let _e1 = g.add_edge(a, a, 1);
-        let tree = unfurl(&g, a, |_, _| 2, |n| *n, |e| *e);
+        let tree = unfurl(&g, a, |_, _| 2, |g,n| g[n], |g,e| g[e]);
         eprintln!("{:?}", Dot::with_config(&tree, &[Config::EdgeNoLabel]));
     }
 
