@@ -1,18 +1,15 @@
+use muscley_wusaley::rdfs::*;
+use petgraph::{dot::Dot, Graph};
 use std::fmt;
-use petgraph::{
-    Graph,
-    dot::Dot
-};
-use muscley_wusaley::*;
 
 struct Edge {
     index: usize,
-    repeat: usize
+    repeat: usize,
 }
 
 impl From<(usize, usize)> for Edge {
     fn from((index, repeat): (usize, usize)) -> Self {
-        Edge {index, repeat }
+        Edge { index, repeat }
     }
 }
 
@@ -33,12 +30,19 @@ impl fmt::Display for Edge {
 /// cargo run --bin make-dot  > tree.dot && dot -Tpdf tree.dot > tree.pdf && open tree.pdf
 /// ```
 fn main() {
-        let mut g = Graph::<_, Edge>::new();
-        let a = g.add_node("a");
-        let _e0 = g.add_edge(a, a, (0, 2).into());
-        let _e1 = g.add_edge(a, a, (1, 2).into());
-        let tree = unfurl(&g, a, |g, e| g[e].repeat as u8, |g, n| g[n].to_owned(), |g,e| e.index());
-        // println!("{}", Dot::with_config(&g, &[]));
-        // println!("{}", &g);
-        println!("{}", Dot::with_config(&tree, &[]));
+    let mut g = Graph::<_, Edge>::new();
+    let a = g.add_node("a");
+    let _e0 = g.add_edge(a, a, (0, 2).into());
+    let _e1 = g.add_edge(a, a, (1, 2).into());
+    // let tree = unfurl(&g, a, |g, e| Permit::EdgeCount(g[e].repeat as u8), |g, n| g[n].to_owned(), |g,e| e.index());
+    let tree = unfurl(
+        &g,
+        a,
+        |_g, _e| Permit::NodeCount(4),
+        |g, n| g[n].to_owned(),
+        |_g, e| e.index(),
+    );
+    // println!("{}", Dot::with_config(&g, &[]));
+    // println!("{}", &g);
+    println!("{}", Dot::with_config(&tree, &[]));
 }
