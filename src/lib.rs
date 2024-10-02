@@ -9,7 +9,7 @@ mod repeat_visit_map;
 mod dsp;
 
 pub mod rdfs;
-// pub mod graph;
+pub mod graph;
 //
 #[derive(Component)]
 pub struct MuscleRange {
@@ -178,6 +178,25 @@ pub struct Part {
     pub position: Vector3,
     pub rotation: Quaternion,
 }
+
+#[derive(Clone, Debug, Copy)]
+pub enum EdgeOp {
+    /// Relfect the edge through a plane
+    Reflect { normal: Vector3 },
+    /// Use a radial symmetry with a rotation normal.
+    Radial { normal: Vector3, symmetry: u8 },
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct PartEdge {
+    // joint_type:
+    pub joint_rotation: Quaternion,
+    pub rotation: Quaternion,
+    pub scale: Vector3,
+    pub iteration_count: u8,
+    pub op: Option<EdgeOp>
+}
+
 
 impl Default for Part {
     fn default() -> Self {

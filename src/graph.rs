@@ -1,14 +1,6 @@
 use petgraph::prelude::*;
+use core::f32::consts::FRAC_PI_4;
 use super::*;
-
-#[derive(Clone, Debug, Copy)]
-struct PartEdge {
-    // joint_type:
-    parent_attach: Vector3,
-    child_attach: Vector3,
-    child_scale: Vector3,
-    iteration_count: u8,
-}
 
 fn snake_graph(part_count: u8) -> DiGraph<Part, PartEdge> {
     let part = Part {
@@ -20,64 +12,49 @@ fn snake_graph(part_count: u8) -> DiGraph<Part, PartEdge> {
     let index = graph.add_node(part);
     graph.add_edge(index, index,
         PartEdge {
-            parent_attach: Vector3::X,
-            child_attach: -Vector3::X,
-            child_scale: 0.6 * Vector3::ONE,
-            iteration_count: part_count
+            joint_rotation: Quaternion::IDENTITY,
+            rotation: Quaternion::IDENTITY,
+            scale: 0.6 * Vector3::ONE,
+            iteration_count: part_count,
+            op: None,
         });
     graph
 }
 
-fn unfurl_graph(graph: &DiGraph<Part, PartEdge>) -> DiGraph<Part, ()> {
-
+pub fn construct_phenotype<F, G>(graph: &DiGraph<Part,PartEdge>,
+                              root: NodeIndex<u32>,
+                              make_part: F,
+                              make_joint: G,
+                              mut commands: Commands
+)
+where F: Fn(&Part, &mut Commands) -> Entity,
+      G: Fn(&JointConfig) -> Option<Entity>,
+{
 
 }
 
-pub fn make_graph(graph: &DiGraph<Part,PartEdge>,
-                  root: petgraph::prelude::NodeIndex<u32>,
-                  mut meshes: ResMut<Assets<Mesh>>,
-                  pbr: PbrBundle,
-                  mut commands: Commands) {
-    let mut graph = graph.map(|i, p| PartData { part: p.clone(), id: None, parity: None }, |i, e| e);
-    let mut dfs = Dfs::new(&graph, root);
-    let density = 1.0;
-    while let Some(nx) = dfs.next(&graph) {
-        let node = &mut graph[nx];
-        let child = node.part;
+struct JointConfig {
+    parent: Entity,
+    /// Local coordinates
+    parent_attach: Vector3,
+    child: Entity,
+    /// Local coordinates
+    child_attach: Vector3,
+}
 
-        if node.parity == None {
-            let mut edges = graph.neighbors_directed(nx, Incoming);
-            while let Some(ex) = edges.next() {
-                node.parity = Some(graph[ex].parity.unwrap().next());
-            }
-        }
+pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity{
+    commands.spawn(
+        {
 
-        if node.id == None {
-            node.id = Some(commands
-            .spawn((
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(child.shape())),
-                    ..pbr
-                },
-                // RigidBody::Static,
-                RigidBody::Dynamic,
-                Position(child.position()),
-                MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
-                // c,
-                child.collider(),
-                if node.parity == Some(PartParity::Even) {
-                    CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven])
-                } else {
-                    CollisionLayers::new([Layer::PartOdd], [Layer::Ground, Layer::PartOdd])
-                },
-            ))
-            .id());
-
-
-        }
-
-        let mut edges = graph.edges_directed(nx, Incoming);
-        while let Some(ex) = edges.next() {
-        }
-    }
+    let mut j = SphericalJoint::new(joint.parent, joint.child)
+        // .with_swing_axis(Vector::Y)
+        // .with_twist_axis(Vector::X)
+        .with_local_anchor_1(joint.parent_attach)
+        .with_local_anchor_2(joint.child_attach)
+        // .with_aligned_axis(Vector::Z)
+        .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
+        .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
+    j.swing_axis = Vector::Y;
+    j.twist_axis = Vector::X;
+            j}).id()
 }
