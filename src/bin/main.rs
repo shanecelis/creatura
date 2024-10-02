@@ -3,8 +3,9 @@ use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::seq::SliceRandom;
 use std::f32::consts::FRAC_PI_4; //, FRAC_PI_3, PI, TAU};
+use avian_pickup::prelude::*;
 
-use muscley_wusaley::*;
+use muscley_wusaley::{*, graph::*};
 
 // fn white_noise() -> impl AudioUnit32 {
 //     // white() >> split::<U2>() * 0.2
@@ -43,20 +44,152 @@ fn main() {
         DefaultPlugins,
         PhysicsDebugPlugin::default(),
         PhysicsPlugins::default(),
+        AvianPickupPlugin::default(),
+        // Add interpolation
+        // AvianInterpolationPlugin::default(),
         plugin,
     ))
     // .add_plugins(DspPlugin::default())
     .insert_resource(ClearColor(blue))
     // .add_dsp_source(white_noise, SourceType::Dynamic)
-    .add_systems(Startup, setup)
+    // .add_systems(Startup, setup)
+    .add_systems(Startup, setup_env)
+    .add_systems(Startup, construct_creature)
     // .add_systems(PostStartup, play_noise)
     // .add_systems(Update, bevy::window::close_on_esc)
     // .add_systems(Update, oscillate_motors)
     // .add_systems(FixedUpdate, sync_muscles)
     // .add_systems(Update, graph::flex_muscles)
-    .add_plugins(PanOrbitCameraPlugin);
+    .add_systems(Update, handle_pickup_input)
+    .add_plugins(PanOrbitCameraPlugin)
+    ;
     // Run the app
     app.run();
+}
+
+/// Pass player input along to `avian_pickup`
+fn handle_pickup_input(
+    mut avian_pickup_input_writer: EventWriter<AvianPickupInput>,
+    key_input: Res<ButtonInput<MouseButton>>,
+    actors: Query<Entity, With<AvianPickupActor>>,
+) {
+    for actor in &actors {
+        if key_input.just_pressed(MouseButton::Left) {
+            avian_pickup_input_writer.send(AvianPickupInput {
+                action: AvianPickupAction::Throw,
+                actor,
+            });
+        }
+        if key_input.just_pressed(MouseButton::Right) {
+            avian_pickup_input_writer.send(AvianPickupInput {
+                action: AvianPickupAction::Drop,
+                actor,
+            });
+        }
+        if key_input.pressed(MouseButton::Right) {
+            avian_pickup_input_writer.send(AvianPickupInput {
+                action: AvianPickupAction::Pull,
+                actor,
+            });
+        }
+    }
+}
+
+fn construct_creature(
+
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    // mut dsp_sources: ResMut<Assets<DspSource>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    ) {
+
+    let mut parent = Part {
+        extents: Vector::new(1., 1., 1.),
+        position: Vector::Y,
+        rotation: Quaternion::IDENTITY,
+    };
+    let pink = Color::srgb_u8(253, 53, 176);
+    let density = 1.0;
+    let scaling = 0.6;
+    let (genotype, root) = snake_graph(3);
+    for entity in construct_phenotype(&genotype,
+                                      root,
+                                      BuildState::default(),
+                                      Vector3::Y,
+                                      Vector3::X,
+                                      Vector3::Y,
+                                      &mut commands,
+                                      move |part, commands| Some(cube_body(part,
+                                                                      pink,
+                                                                      density,
+                                                                      &mut meshes,
+                                                                      &mut materials,
+                                                                      commands)),
+                                      |joint: &JointConfig, commands| Some(spherical_joint(joint, commands))) {
+        eprintln!("Made entity");
+
+    }
+    // let mut muscles = vec![];
+
+}
+
+fn setup_env(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    // mut dsp_sources: ResMut<Assets<DspSource>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    // dsp_manager: Res<DspManager>,
+) {
+    let ground_color = Color::srgb_u8(226, 199, 184);
+    // Ground
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(10., 0.1, 10.)),
+            material: materials.add(ground_color),
+            ..default()
+        },
+        CollisionLayers::new(
+            [Layer::Ground],
+            [Layer::Part, Layer::PartEven, Layer::PartOdd],
+        ),
+        RigidBody::Static,
+        Collider::cuboid(10., 0.1, 10.),
+    ));
+
+    // Light
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 1000.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(1.0, 8.0, 1.0).looking_at(Vec3::ZERO, Dir3::Y),
+        ..default()
+    });
+
+    // Camera
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        PanOrbitCamera::default(),
+// Add this to set up the camera as the entity that can pick up
+        // objects.
+        AvianPickupActor {
+            // Increase the maximum distance a bit to show off the
+            // prop changing its distance on scroll.
+            interaction_distance: 100.0,
+            ..default()
+        },
+        // InputAccumulation::default(),
+    ));
+    // Pickup
+    // commands.spawn((
+    //     SpatialBundle::default(),
+    //     AvianPickupActor::default(),
+    // ));
+
 }
 
 fn setup(

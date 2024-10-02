@@ -4,7 +4,7 @@ use crate::rdfs::*;
 use super::*;
 
 
-fn snake_graph(part_count: u8) -> DiGraph<Part, PartEdge> {
+pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<DefaultIx>) {
     let part = Part {
         extents: Vector::new(1., 1., 1.),
         position: Vector::ZERO,
@@ -20,21 +20,21 @@ fn snake_graph(part_count: u8) -> DiGraph<Part, PartEdge> {
             iteration_count: part_count,
             op: None,
         });
-    graph
+    (graph, index)
 }
 
 pub enum ConstructError {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct State {
+pub struct BuildState {
     pub scale: Vector3,
     pub rotation: Quaternion,
 }
 
-impl Default for State {
+impl Default for BuildState {
     fn default() -> Self {
-        State {
+        BuildState {
             scale: Vector3::ONE,
             rotation: Quaternion::IDENTITY,
         }
@@ -43,15 +43,16 @@ impl Default for State {
 
 pub fn construct_phenotype<F, G>(graph: &DiGraph<Part,PartEdge>,
                                  root: NodeIndex<DefaultIx>,
-                                 state: State,
+                                 state: BuildState,
+                                 position: Vector3,
                                  principle_axis: Vector3,
                                  secondary_axis: Vector3,
-                                 make_part: F,
-                                 make_joint: G,
-                                 commands: &mut Commands
+                                 commands: &mut Commands,
+                                 mut make_part: F,
+                                 mut make_joint: G,
 ) -> Result<Vec<Entity>, ConstructError>
-where F: Fn(&Part, &mut Commands) -> Option<Entity>,
-      G: Fn(&JointConfig, &mut Commands) -> Option<Entity>,
+where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
+      G: FnMut(&JointConfig, &mut Commands) -> Option<Entity>,
 {
     let mut rdfs = Rdfs::new(graph, root, |g, _n, e| Permit::EdgeCount(g[e].iteration_count));
     let mut states = vec![];
@@ -61,7 +62,7 @@ where F: Fn(&Part, &mut Commands) -> Option<Entity>,
         let depth = rdfs.depth();
         let _ = states.drain(depth..);
         let _ = parts.drain(depth..);
-        let mut state: State = *states.last().unwrap_or(&state);
+        let mut state: BuildState = *states.last().unwrap_or(&state);
         let mut joint_rotation = None;
         if let Some(edge) = rdfs.path.last() {
             let part_edge = graph[*edge];
@@ -75,6 +76,7 @@ where F: Fn(&Part, &mut Commands) -> Option<Entity>,
             let joint_rotation = joint_rotation.map(|q| q * state.rotation).unwrap_or(state.rotation);
             let joint_dir = joint_rotation * principle_axis;
             child.position = parent.position + 10.0 * joint_dir;
+            child.extents = state.scale * graph[node].extents;
             // Position child
             if let Some((p1, p2)) = child.stamp(parent) {
                 let child_id = make_part(&child, commands).unwrap();
@@ -92,6 +94,7 @@ where F: Fn(&Part, &mut Commands) -> Option<Entity>,
             }
         } else {
             // Root object, no parent.
+            child.position = position;
             make_part(&child, commands).unwrap()
         };
         commands.entity(child_id).insert(if depth % 2 == 0 {
