@@ -27,9 +27,9 @@ pub enum ConstructError {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct State {
-    scale: Vector3,
-    rotation: Quaternion,
+pub struct State {
+    pub scale: Vector3,
+    pub rotation: Quaternion,
 }
 
 impl Default for State {
@@ -53,7 +53,7 @@ pub fn construct_phenotype<F, G>(graph: &DiGraph<Part,PartEdge>,
 where F: Fn(&Part, &mut Commands) -> Option<Entity>,
       G: Fn(&JointConfig, &mut Commands) -> Option<Entity>,
 {
-    let mut rdfs = Rdfs::new(graph, root, |g, n, e| Permit::EdgeCount(g[e].iteration_count));
+    let mut rdfs = Rdfs::new(graph, root, |g, _n, e| Permit::EdgeCount(g[e].iteration_count));
     let mut states = vec![];
     let mut parts: Vec<(Part, Entity)> = vec![];
     let mut entities = vec![];
@@ -106,17 +106,17 @@ where F: Fn(&Part, &mut Commands) -> Option<Entity>,
     Ok(entities)
 }
 
-struct JointConfig {
-    parent: Entity,
+pub struct JointConfig {
+    pub parent: Entity,
     /// Local coordinates
-    parent_anchor: Vector3,
-    child: Entity,
+    pub parent_anchor: Vector3,
+    pub child: Entity,
     /// Local coordinates
-    child_anchor: Vector3,
+    pub child_anchor: Vector3,
     /// Normal axis
-    normal: Vector3,
+    pub normal: Vector3,
     /// Tangent axis
-    tangent: Vector3,
+    pub tangent: Vector3,
 }
 
 pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity{
