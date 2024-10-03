@@ -5,6 +5,11 @@ use rand::seq::SliceRandom;
 use std::f32::consts::FRAC_PI_4; //, FRAC_PI_3, PI, TAU};
 use avian_pickup::prelude::*;
 
+use bevy::{
+    app::RunFixedMainLoop, color::palettes::tailwind, input::mouse::MouseMotion, prelude::*,
+    time::run_fixed_main_schedule,
+};
+
 use muscley_wusaley::{*, graph::*};
 
 // fn white_noise() -> impl AudioUnit32 {
@@ -60,8 +65,13 @@ fn main() {
     // .add_systems(Update, oscillate_motors)
     // .add_systems(FixedUpdate, sync_muscles)
     // .add_systems(Update, graph::flex_muscles)
-    .add_systems(Update, handle_pickup_input)
+    // .add_systems(Update, handle_pickup_input)
     .add_plugins(PanOrbitCameraPlugin)
+    //
+        .add_systems(
+            RunFixedMainLoop,
+            (handle_pickup_input).before(run_fixed_main_schedule),
+        )
     ;
     // Run the app
     app.run();
@@ -111,7 +121,7 @@ fn construct_creature(
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
     let scaling = 0.6;
-    let (genotype, root) = snake_graph(3);
+    let (genotype, root) = snake_graph(4);
     for entity in construct_phenotype(&genotype,
                                       root,
                                       BuildState::default(),
@@ -179,7 +189,7 @@ fn setup_env(
         AvianPickupActor {
             // Increase the maximum distance a bit to show off the
             // prop changing its distance on scroll.
-            interaction_distance: 100.0,
+            interaction_distance: 15.0,
             ..default()
         },
         // InputAccumulation::default(),
