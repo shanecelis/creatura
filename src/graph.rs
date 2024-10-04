@@ -19,6 +19,7 @@ pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<Defaul
             scale: 0.6 * Vector3::ONE,
             iteration_count: part_count,
             op: None,
+            muscles: vec![],
         });
     (graph, index)
 }
@@ -41,7 +42,7 @@ impl Default for BuildState {
     }
 }
 
-pub fn construct_phenotype<F, G>(graph: &DiGraph<Part,PartEdge>,
+pub fn construct_phenotype<F, G, H>(graph: &DiGraph<Part,PartEdge>,
                                  root: NodeIndex<DefaultIx>,
                                  state: BuildState,
                                  position: Vector3,
@@ -50,9 +51,12 @@ pub fn construct_phenotype<F, G>(graph: &DiGraph<Part,PartEdge>,
                                  commands: &mut Commands,
                                  mut make_part: F,
                                  mut make_joint: G,
+                                 mut make_muscle: H,
 ) -> Result<Vec<Entity>, ConstructError>
 where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
       G: FnMut(&JointConfig, &mut Commands) -> Option<Entity>,
+      H: FnMut(Entity, Vector3, Entity, Vector3, &mut Commands) -> Option<Entity>,
+
 {
     let mut rdfs = Rdfs::new(graph, root, |g, _n, e| Permit::EdgeCount(g[e].iteration_count));
     let mut states = vec![];
@@ -65,7 +69,7 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
         let mut state: BuildState = *states.last().unwrap_or(&state);
         let mut joint_rotation = None;
         if let Some(edge) = rdfs.path.last() {
-            let part_edge = graph[*edge];
+            let part_edge = &graph[*edge];
             state.rotation *= part_edge.rotation;
             state.scale *= part_edge.scale;
             joint_rotation = Some(part_edge.joint_rotation);
@@ -88,6 +92,17 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
                                             tangent: joint_rotation * secondary_axis
                 }, commands)
                     .map(|e| entities.push(e));
+                // Make muscles
+                if let Some(edge) = rdfs.path.last() {
+                    for muscle in &graph[*edge].muscles {
+                        let parent_anchor_dir = joint_rotation * muscle.parent * secondary_axis;
+                        let child_anchor_dir = joint_rotation * muscle.child * secondary_axis;
+                        if let Some((a1, a2)) = parent.cast_to(parent_anchor_dir).zip(child.cast_to(child_anchor_dir)) {
+                            make_muscle(*parent_id, a1, child_id, a2, commands)
+                                .map(|e| entities.push(e));
+                        }
+                    }
+                }
                 child_id
             } else {
                 panic!();

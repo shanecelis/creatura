@@ -135,7 +135,8 @@ fn construct_creature(
                                                                       &mut meshes,
                                                                       &mut materials,
                                                                       commands)),
-                                      |joint: &JointConfig, commands| Some(spherical_joint(joint, commands))) {
+                                      |joint: &JointConfig, commands| Some(spherical_joint(joint, commands)),
+                                      |_, _, _, _, commands| None) {
         eprintln!("Made entity");
 
     }

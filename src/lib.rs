@@ -188,14 +188,23 @@ pub enum EdgeOp {
 }
 
 #[derive(Clone, Debug, Copy)]
+pub struct MuscleGene {
+    parent: Quaternion,
+    child: Quaternion,
+    max_strength: f32,
+}
+
+#[derive(Clone, Debug)]
 pub struct PartEdge {
     // joint_type:
     pub joint_rotation: Quaternion,
     pub rotation: Quaternion,
     pub scale: Vector3,
     pub iteration_count: u8,
-    pub op: Option<EdgeOp>
+    pub op: Option<EdgeOp>,
+    pub muscles: Vec<MuscleGene>,
 }
+
 
 
 impl Default for Part {
