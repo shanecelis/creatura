@@ -19,7 +19,13 @@ pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<Defaul
             scale: 0.6 * Vector3::ONE,
             iteration_count: part_count,
             op: None,
-            muscles: vec![],
+            muscles: vec![
+                MuscleGene {
+                parent: Quaternion::from_axis_angle(Vec3::Z, FRAC_PI_4),
+                child: Quaternion::IDENTITY,
+                max_strength: 1.0,
+            }
+            ],
         });
     (graph, index)
 }
@@ -42,6 +48,14 @@ impl Default for BuildState {
     }
 }
 
+#[derive(Debug)]
+pub struct MuscleSite<'a> {
+    pub id: Entity,
+    pub anchor_local: Vector3,
+    pub part: &'a Part
+}
+
+
 pub fn construct_phenotype<F, G, H>(graph: &DiGraph<Part,PartEdge>,
                                  root: NodeIndex<DefaultIx>,
                                  state: BuildState,
@@ -55,7 +69,7 @@ pub fn construct_phenotype<F, G, H>(graph: &DiGraph<Part,PartEdge>,
 ) -> Result<Vec<Entity>, ConstructError>
 where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
       G: FnMut(&JointConfig, &mut Commands) -> Option<Entity>,
-      H: FnMut(Entity, Vector3, Entity, Vector3, &mut Commands) -> Option<Entity>,
+      H: FnMut(&MuscleSite, &MuscleSite, &mut Commands) -> Option<Entity>,
 
 {
     let mut rdfs = Rdfs::new(graph, root, |g, _n, e| Permit::EdgeCount(g[e].iteration_count));
@@ -95,10 +109,28 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
                 // Make muscles
                 if let Some(edge) = rdfs.path.last() {
                     for muscle in &graph[*edge].muscles {
-                        let parent_anchor_dir = joint_rotation * muscle.parent * secondary_axis;
-                        let child_anchor_dir = joint_rotation * muscle.child * secondary_axis;
+                        let r = joint_rotation * muscle.parent;
+                        let parent_anchor_dir: Dir3 = Dir3::new(r * principle_axis).expect("dir3");
+                        let child_anchor_dir: Dir3 = Dir3::new(r * muscle.child * principle_axis).expect("dir3");
+                        dbg!(parent);
+                        dbg!(parent_anchor_dir);
+                        dbg!(child);
+                        dbg!(child_anchor_dir);
                         if let Some((a1, a2)) = parent.cast_to(parent_anchor_dir).zip(child.cast_to(child_anchor_dir)) {
-                            make_muscle(*parent_id, a1, child_id, a2, commands)
+                            let parent_site = MuscleSite {
+                                id: *parent_id,
+                                anchor_local: a1,
+                                part: parent
+                            };
+
+                            let child_site = MuscleSite {
+                                id: child_id,
+                                anchor_local: a2,
+                                part: &child
+                            };
+                            dbg!(&parent_site);
+                            dbg!(&child_site);
+                            make_muscle(&parent_site, &child_site, commands)
                                 .map(|e| entities.push(e));
                         }
                     }
@@ -179,3 +211,43 @@ pub fn cube_body(child: &Part,
         .id()
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_cast_to() {
+        let parent = Part {
+            extents: Vec3::ONE,
+            position: Vec3::Y,
+            rotation: Quat::IDENTITY
+        };
+
+        let anchor_dir = Vec3::Y;
+        let child = Part {
+            extents: Vec3::splat(0.6),
+            position: Vec3::new(0.8, 1.0, 0.0),
+            rotation: Quat::IDENTITY
+        };
+        parent.cast_to(Dir3::new(anchor_dir).unwrap());
+        // child.cast_to(anchor_dir);
+
+        // if let Some((a1, a2)) = parent.cast_to(anchor_dir).zip(child.cast_to(anchor_dir)) {
+        // }
+    }
+
+    #[test]
+    fn quat_div() {
+        let a = Quat::from_axis_angle(Vec3::X, PI );
+        let b = Quat::from_axis_angle(Vec3::X, PI / 2.0);
+        // assert_eq!(a * b.inverse(), b);
+
+    }
+
+    // fn cast_to(&self, point: Vector3) -> Option<Vector3> {
+    //     let dir = self.position() - point;
+    //     self.collider()
+    //         .cast_ray(self.position(), self.rotation, point, dir, 100., false)
+    //         .map(|(toi, _normal)| dir * toi + point)
+    // }
+}

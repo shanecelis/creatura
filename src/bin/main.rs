@@ -121,7 +121,8 @@ fn construct_creature(
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
     let scaling = 0.6;
-    let (genotype, root) = snake_graph(4);
+    let (genotype, root) = snake_graph(3);
+    let mut muscles = vec![];
     for entity in construct_phenotype(&genotype,
                                       root,
                                       BuildState::default(),
@@ -136,10 +137,20 @@ fn construct_creature(
                                                                       &mut materials,
                                                                       commands)),
                                       |joint: &JointConfig, commands| Some(spherical_joint(joint, commands)),
-                                      |_, _, _, _, commands| None) {
+                                      |a, b, commands| Some({let id = build_muscle(a, b, commands);
+                                                             muscles.push(id);
+                                                             id })) {
         eprintln!("Made entity");
 
     }
+
+    commands.spawn((
+        NervousSystem {
+            muscles,
+            sensors: vec![],
+        },
+        KeyboardBrain,
+                   ));
     // let mut muscles = vec![];
 
 }
@@ -201,6 +212,44 @@ fn setup_env(
     //     AvianPickupActor::default(),
     // ));
 
+}
+
+fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
+    let rest_length = (parent.part.from_local(parent.anchor_local) - child.part.from_local(child.anchor_local)).length();
+    commands
+        .spawn(
+            DistanceJoint::new(parent.id, child.id)
+                .with_local_anchor_1(parent.anchor_local)
+                .with_local_anchor_2(child.anchor_local)
+                .with_rest_length(dbg!(rest_length))
+            // .with_limits(rest_length, rest_length)
+            // .with_linear_velocity_damping(0.1)
+            // .with_angular_velocity_damping(1.0)
+                .with_compliance(1.0 / 100.0),
+        )
+        .insert(
+            // MuscleUnit {
+            //     // iter: dsp_sources.add(dsp)
+            //     // iter: dsp.into_iter()
+            //     unit: Box::new({ let mut unit = white_noise_mono();
+            //                      unit.set_sample_rate(1000.0);
+            //                      unit}),
+            //     min: rest_length * length_scale,
+            //     max: rest_length * (1.0 + length_scale),
+            // }
+
+            // SpringOscillator {
+            //     freq: 1.0,
+            //     min: rest_length * length_scale,
+            //     max: rest_length * (1.0 + length_scale),
+            // },
+            Muscle::default(),
+        )
+        .insert(MuscleRange {
+            min: 0.0,
+            max: rest_length * 2.0,
+        })
+        .id()
 }
 
 fn setup(

@@ -131,11 +131,13 @@ pub fn keyboard_brain(
             if let Ok(mut muscle) = joints.get_mut(muscles[i]) {
                 if input.pressed(keys[i][0]) {
                     muscle.value += delta * time.delta_seconds();
-                    eprintln!("set muscle value {}", muscle.value);
+                    eprintln!("inc muscle value {}", muscle.value);
                 } else if input.pressed(keys[i][1]) {
                     muscle.value = 0.0;
+                    eprintln!("reset muscle value {}", muscle.value);
                 } else if input.pressed(keys[i][2]) {
                     muscle.value -= delta * time.delta_seconds();
+                    eprintln!("dec muscle value {}", muscle.value);
                 } else if input.just_pressed(keys[i][3]) {
                     if disabled.get(muscles[i]).is_ok() {
                         commands.entity(muscles[i]).remove::<JointDisabled>();
@@ -194,6 +196,16 @@ pub struct MuscleGene {
     max_strength: f32,
 }
 
+impl Default for MuscleGene {
+    fn default() -> Self {
+        Self {
+            parent: Quaternion::IDENTITY,
+            child: Quaternion::IDENTITY,
+            max_strength: 1.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PartEdge {
     // joint_type:
@@ -233,27 +245,29 @@ impl Part {
         v.x * v.y * v.z
     }
 
-    pub fn from_local(&self, point: Vector3) -> Vector3 {
-        ColliderTransform {
-            translation: self.position,
-            rotation: self.rotation.into(),
-            scale: Vector::ONE,
-        }
-        .transform_point(point)
-    }
 }
 
+// pub struct StampResult {
+//     stamp_delta: Vector3,
+//     stamp_anchor: Vector3,
+//     stampable_anchor: Vector3,
+// }
+
+/// A stampable is an object that can be "stamped" onto another object. This
+/// means that it is moved so that its exterior is just touching the object it
+/// was stamped onto.
 pub trait Stampable {
     /// Return object position.
     fn position(&self) -> Vector3;
     /// Return object orientation.
     fn rotation(&self) -> Quaternion;
-    /// Stamp object onto another, return the local vectors of each where they connect.
+    /// Stamp object onto another, return the local vectors of each where they touch.
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)>;
     /// Raycast from within the object to determine a point on its surface.
-    fn cast_to(&self, point: Vector3) -> Option<Vector3>;
+    fn cast_to(&self, point: Dir3) -> Option<Vector3>;
     /// Convert a world point to a local point.
     fn to_local(&self, point: Vector3) -> Vector3;
+    fn from_local(&self, point: Vector3) -> Vector3;
 }
 
 impl Stampable for Part {
@@ -270,13 +284,25 @@ impl Stampable for Part {
             .transform_point(point)
     }
 
+    fn from_local(&self, point: Vector3) -> Vector3 {
+        ColliderTransform {
+            translation: self.position,
+            rotation: self.rotation.into(),
+            scale: Vector::ONE,
+        }
+        .transform_point(point)
+    }
+
     fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
-        if let Some(intersect1) = onto.cast_to(self.position()) {
-            if let Some(intersect2) = self.cast_to(onto.position()) {
+        let dir = Dir3::new(onto.position() - self.position()).expect("dir3");
+        if let Some(p1) = onto.cast_to(-dir) {
+            if let Some(p2) = self.cast_to(dir) {
+                let intersect1 = onto.from_local(p1);
+                let intersect2 = self.from_local(p2);
                 // We can put ourself into the right place.
                 let delta = intersect2 - intersect1;
-                let p1 = onto.to_local(intersect1);
-                let p2 = self.to_local(intersect2);
+                // let p1 = onto.to_local(intersect1);
+                // let p2 = self.to_local(intersect2);
                 self.position -= delta;
                 return Some((p1, p2));
             }
@@ -284,11 +310,12 @@ impl Stampable for Part {
         None
     }
 
-    fn cast_to(&self, point: Vector3) -> Option<Vector3> {
-        let dir = self.position() - point;
+    fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
         self.collider()
-            .cast_ray(self.position(), self.rotation, point, dir, 100., false)
-            .map(|(toi, _normal)| dir * toi + point)
+            // .cast_ray(self.position(), self.rotation, self.position(), dir.as_vec3(), 100., false)
+            // .map(|(toi, _normal)| dir * toi + self.position())
+            .cast_ray(Vec3::ZERO, Quaternion::IDENTITY, Vec3::ZERO, (self.rotation.inverse() * dir).as_vec3(), 100., false)
+            .map(|(toi, _normal)| dir * toi)
     }
 }
 

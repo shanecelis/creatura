@@ -28,3 +28,4 @@ doc = false
 
 [patch.crates-io]
 avian3d = { path = '../avian/crates/avian3d' }
+parry3d = { path = '../parry/crates/parry3d' }
