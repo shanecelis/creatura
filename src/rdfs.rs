@@ -180,7 +180,9 @@ where
             self.path[i].hash(&mut hash);
         }
         let parent_hash = hash.finish();
-        self.path.last().map(|e| e.hash(&mut hash));
+        if let Some(e) = self.path.last() {
+            e.hash(&mut hash);
+        }
         let child_hash = hash.finish();
         (parent_hash, child_hash)
     }
@@ -204,6 +206,7 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 /// Given a graph, construct its RDFS tree.
 pub fn reify<N, E, Ty, Ix, N2, E2>(
     graph: &Graph<N, E, Ty, Ix>,
@@ -225,7 +228,7 @@ where
             if let Some(node) = new_nodes.get(&hash) {
                 *node
             } else {
-                let n = unfurled.add_node(node_fn(&graph, node));
+                let n = unfurled.add_node(node_fn(graph, node));
                 new_nodes.insert(hash, n);
                 n
             }
@@ -237,7 +240,7 @@ where
                 // Copy the source, Luke!
                 let source = get_or_insert_node(source, source_hash, &mut unfurled);
                 let target = get_or_insert_node(target, target_hash, &mut unfurled);
-                unfurled.add_edge(source, target, edge_fn(&graph, edge));
+                unfurled.add_edge(source, target, edge_fn(graph, edge));
             }
         }
     }

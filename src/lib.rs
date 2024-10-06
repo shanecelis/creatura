@@ -267,6 +267,8 @@ pub trait Stampable {
     fn cast_to(&self, point: Dir3) -> Option<Vector3>;
     /// Convert a world point to a local point.
     fn to_local(&self, point: Vector3) -> Vector3;
+    #[allow(clippy::wrong_self_convention)]
+    /// Convert a local point to a world point.
     fn from_local(&self, point: Vector3) -> Vector3;
 }
 

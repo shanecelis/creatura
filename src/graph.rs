@@ -30,6 +30,7 @@ pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<Defaul
     (graph, index)
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum ConstructError {
 }
 
@@ -56,6 +57,7 @@ pub struct MuscleSite<'a> {
 }
 
 
+#[allow(clippy::too_many_arguments)]
 pub fn construct_phenotype<F, G, H>(graph: &DiGraph<Part,PartEdge>,
                                  root: NodeIndex<DefaultIx>,
                                  state: BuildState,
@@ -98,14 +100,15 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
             // Position child
             if let Some((p1, p2)) = child.stamp(parent) {
                 let child_id = make_part(&child, commands).unwrap();
-                make_joint(&JointConfig { parent: *parent_id,
+                if let Some(e) = make_joint(&JointConfig { parent: *parent_id,
                                             parent_anchor: p1,
                                             child: child_id,
                                             child_anchor: p2,
                                             normal: joint_dir,
                                             tangent: joint_rotation * secondary_axis
-                }, commands)
-                    .map(|e| entities.push(e));
+                }, commands) {
+                    entities.push(e);
+                }
                 // Make muscles
                 if let Some(edge) = rdfs.path.last() {
                     for muscle in &graph[*edge].muscles {
@@ -130,8 +133,9 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
                             };
                             dbg!(&parent_site);
                             dbg!(&child_site);
-                            make_muscle(&parent_site, &child_site, commands)
-                                .map(|e| entities.push(e));
+                            if let Some(e) = make_muscle(&parent_site, &child_site, commands) {
+                                entities.push(e);
+                            }
                         }
                     }
                 }
@@ -223,31 +227,17 @@ mod test {
             rotation: Quat::IDENTITY
         };
 
-        let anchor_dir = Vec3::Y;
-        let child = Part {
-            extents: Vec3::splat(0.6),
-            position: Vec3::new(0.8, 1.0, 0.0),
-            rotation: Quat::IDENTITY
-        };
-        parent.cast_to(Dir3::new(anchor_dir).unwrap());
-        // child.cast_to(anchor_dir);
-
-        // if let Some((a1, a2)) = parent.cast_to(anchor_dir).zip(child.cast_to(anchor_dir)) {
-        // }
+        let anchor_dir = Dir3::Y;
+        let hit = parent.cast_to(anchor_dir).unwrap();
+        assert_eq!(hit, Vec3::Y / 2.0);
     }
 
     #[test]
     fn quat_div() {
         let a = Quat::from_axis_angle(Vec3::X, PI );
         let b = Quat::from_axis_angle(Vec3::X, PI / 2.0);
-        // assert_eq!(a * b.inverse(), b);
-
+        let c = a * b.inverse();
+        assert!(c.angle_between(b) < 0.01);
     }
 
-    // fn cast_to(&self, point: Vector3) -> Option<Vector3> {
-    //     let dir = self.position() - point;
-    //     self.collider()
-    //         .cast_ray(self.position(), self.rotation, point, dir, 100., false)
-    //         .map(|(toi, _normal)| dir * toi + point)
-    // }
 }
