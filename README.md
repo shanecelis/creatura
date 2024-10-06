@@ -1,4 +1,4 @@
-# muscley-wusaley README
+# creatura README
 
 I'm gonna try to just do more open development here so people can see the scratch pad I'm using.
 
