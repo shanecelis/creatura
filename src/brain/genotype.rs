@@ -7,6 +7,8 @@ use petgraph::{
         IntoNodeIdentifiers,
         Visitable,
         NodeIndexable,
+        IntoNeighbors,
+        IntoEdgesDirected
     },
     algo::{
         toposort,
@@ -230,27 +232,35 @@ where F: FnMut(&I) -> Result<O, E>,
 
 pub fn toposort_lossy<G>(
     graph: G,
-    space: Option<&mut DfsSpace<G::NodeId, G::Map>>
+    remove_edge: F
+    // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
 ) -> Result<Vec<G::NodeId>, Cycle<G::NodeId>>
 where
-    G: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable {
+    F: FnMut(X),
+    G: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected {
     try_repeat(|g| toposort(g, None), graph,
                |g, e| {
-                   for nodes in tarjan_scc(g) {
-                       if nodes.contains(e.node_id) {
+                   let troublemaker = e.node_id();
+                   for nodes in tarjan_scc::<G>(*g) {
+                       if nodes.contains(&e.node_id()) {
                             // This scc contains our trouble maker.
-                            for neighbor in g.neighbors[e.node_id] {
-                                if nodes.contains(neighbor.id()) {
-                                    for edge in g.edges_connecting(e.node_id, neighbor.id()) {
-
-                                    }
+                            for edge in g.edges_directed(troublemaker, Direction::Incoming) {
+                                if nodes.contains(&edge.source()) {
+                                    g.edge_remove(edge.id());
                                 }
                             }
+                            // for neighbor in g.neighbors(troublemaker) {
+                            //     if nodes.contains(&neighbor) {
 
+                            //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
+                            //             g.edge_remove(edge.id());
+                            //         }
+                            //     }
+                            // }
                        }
                    }
                },
-               3)
+    )
 }
 
 impl Brain {
