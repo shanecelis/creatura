@@ -8,7 +8,7 @@ use bevy::{
     time::run_fixed_main_schedule,
 };
 
-use muscley_wusaley::{*, graph::*};
+use creatura::{*, graph::*};
 
 fn main() {
     let mut app = App::new();

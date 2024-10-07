@@ -3,7 +3,6 @@ use core::f32::consts::FRAC_PI_4;
 use crate::rdfs::*;
 use super::*;
 
-
 pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<DefaultIx>) {
     let part = Part {
         extents: Vector::new(1., 1., 1.),

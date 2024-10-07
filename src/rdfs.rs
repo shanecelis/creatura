@@ -43,7 +43,7 @@ use std::{
 ///
 /// ```
 /// use petgraph::Graph;
-/// use muscley_wusaley::rdfs::{Rdfs, Permit};
+/// use creatura::rdfs::{Rdfs, Permit};
 ///
 /// let mut graph = Graph::<isize,isize>::new();
 /// let a = graph.add_node(0);
