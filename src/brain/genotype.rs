@@ -138,8 +138,8 @@ impl BitBrain {
         // TODO: This could still have cycles. We can find the strongly
         // connected components (scc) and try to take one of the edges between
         // the nodes out.
-        // let mut update = toposort(&g, None).ok()?;
-        let mut update = toposort_lossy(&mut g, |g, e| { g.remove_edge(e); }).ok()?;
+        let mut update = toposort(&mut g, None).ok()?;
+        // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); Ok(g) }).ok()?;
         update.sort_by(|ai, bi| order_neurons(&g[*ai], ai.index(), &g[*bi], bi.index()));
         let mut index = 0;
 
@@ -231,48 +231,48 @@ where F: FnMut(&I) -> Result<O, E>,
     unreachable!();
 }
 
-pub fn toposort_lossy<G, F>(
-    mut graph: G,
-    mut remove_edge: F
-    // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
-) -> Result<Vec<G::NodeId>, Cycle<G::NodeId>>
-where
-    F: FnMut(&mut G, G::EdgeId),
-    G: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected {
-    try_repeat(3,
-               |g| toposort(g, None),
-               &mut graph,
-               |g, e| {
-                   let troublemaker = e.node_id();
-                   for nodes in tarjan_scc::<G>(*g) {
-                       if nodes.contains(&e.node_id()) {
-                           // This scc contains our trouble maker.
-                           for edge in g.edges_directed(troublemaker, Direction::Incoming) {
-                               if nodes.contains(&edge.source()) {
-                                   remove_edge(g, edge.id());
-                                   break;
-                               }
-                           }
+// pub fn toposort_lossy<G, F>(
+//     mut graph: G,
+//     mut remove_edge: F
+//     // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
+// ) -> Result<Vec<G::NodeId>, Cycle<G::NodeId>>
+// where
+//     F: FnMut(&mut G, G::EdgeId),
+//     G: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected {
+//     try_repeat(3,
+//                |g| toposort(g, None),
+//                graph,
+//                |g, e| {
+//                    let troublemaker = e.node_id();
+//                    for nodes in tarjan_scc::<G>(g) {
+//                        if nodes.contains(&e.node_id()) {
+//                            // This scc contains our trouble maker.
+//                            for edge in g.edges_directed(troublemaker, Direction::Incoming) {
+//                                if nodes.contains(&edge.source()) {
+//                                    remove_edge(g, edge.id());
+//                                    break;
+//                                }
+//                            }
 
-                           for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
-                               if nodes.contains(&edge.target()) {
-                                   remove_edge(g, edge.id());
-                                   break;
-                               }
-                           }
-                           // for neighbor in g.neighbors(troublemaker) {
-                           //     if nodes.contains(&neighbor) {
-                           //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
-                           //             g.edge_remove(edge.id());
-                           //         }
-                           //     }
-                           // }
-                       }
-                   }
-                   Ok(())
-               },
-    )
-}
+//                            for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
+//                                if nodes.contains(&edge.target()) {
+//                                    remove_edge(g, edge.id());
+//                                    break;
+//                                }
+//                            }
+//                            // for neighbor in g.neighbors(troublemaker) {
+//                            //     if nodes.contains(&neighbor) {
+//                            //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
+//                            //             g.edge_remove(edge.id());
+//                            //         }
+//                            //     }
+//                            // }
+//                        }
+//                    }
+//                    Ok(())
+//                },
+//     )
+// }
 
 impl Brain {
     fn new(graph: DiGraph<Neuron, ()>) -> Option<Brain> {
