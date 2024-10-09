@@ -109,7 +109,7 @@ pub struct BitBrain {
     /// This "bit code" follows a simple format:
     ///
     /// ```ignore
-    /// <neuron index>, <input count>, <input 1>, <input 2>, ..., <neuron index>.
+    /// <input count>, <input 1>, <input 2>, ..., <input count>.
     /// ```
     ///
     /// Neurons and code are read only.
@@ -123,25 +123,46 @@ pub struct BitBrain {
 
 impl BitBrain {
 
-    fn new(graph: DiGraph<Neuron, ()>) -> Option<BitBrain> {
+    fn new(graph: &DiGraph<Neuron, ()>) -> Option<BitBrain> {
         // let count: u8 = graph.node_references().map(|(_i, n)| n.storage()).sum();
         let count: usize = graph.node_count();
-        let mut g = graph.clone();
-        let mut cycles = vec![];
-        for edge in g.edge_references() {
-            if edge.source() == edge.target() {
-                cycles.push(edge.id());
-            }
-        }
-        for edge_id in cycles {
-            g.remove_edge(edge_id);
-        }
+        // let mut g = graph.clone();
+        // let mut cycles = vec![];
+        // for edge in g.edge_references() {
+        //     if edge.source() == edge.target() {
+        //         cycles.push(edge.id());
+        //     }
+        // }
+        // for edge_id in cycles {
+        //     g.remove_edge(edge_id);
+        // }
         // TODO: This could still have cycles. We can find the strongly
         // connected components (scc) and try to take one of the edges between
         // the nodes out.
-        // let mut update = toposort(&g, None).ok()?;
-        // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); }).ok()?;
-        update.sort_by(|ai, bi| order_neurons(&g[*ai], ai.index(), &g[*bi], bi.index()));
+        let mut update = {
+            let mut u = None;
+            let mut g = graph.clone();
+            for _ in 0..5 {
+                match toposort(&g, None) {
+                    Ok(list) => {
+                        u = Some(list);
+                        break;
+                    }
+                    Err(cycle) => {
+                        let edges: Vec<_> = g.edges_connecting(cycle.node_id(), cycle.neighbor_id()).map(|e| e.id()).collect();
+                        if edges.is_empty() {
+                            break;
+                        }
+                        for edge in edges {
+                            g.remove_edge(edge);
+                        }
+                    }
+                }
+            }
+            u?
+        };
+        // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); Ok(g) }).ok()?;
+        update.sort_by(|ai, bi| order_neurons(&graph[*ai], ai.index(), &graph[*bi], bi.index()));
         let mut index = 0;
 
         // let mut brain = graph.clone();//map(|_i, n| (*n, 0), |_i, e| *e);
@@ -150,7 +171,8 @@ impl BitBrain {
         let mut code = vec![];
         for (i, node_index) in update.iter().enumerate() {
             neurons.push(graph[*node_index]);
-            code.push(i as u8);
+            // This is implicit in its ordering.
+            // code.push(i as u8);
             code.push(graph.edges_directed(*node_index, Direction::Incoming).count() as u8);
             for edge in graph.edges_directed(*node_index, Direction::Incoming) {
                 code.push(update.iter().position(|n| *n == edge.source()).expect("neuron position") as u8);
@@ -187,9 +209,9 @@ impl BitBrain {
     fn eval(&mut self, ctx: &Context) {
         let mut i: usize = 0;
         let mut scratch = vec![];
+        let mut j = 0;
         while i < self.code.len() {
-            let j = self.code[i] as usize;
-            i += 1;
+            // let j = self.code[i] as usize;
             let neuron = self.neurons[j];
             let count = self.code[i] as usize;
             i += 1;
@@ -199,16 +221,11 @@ impl BitBrain {
                 scratch.push(self.read()[k]);
                 i += 1;
             }
-            self.write()[j] = neuron.eval(ctx, self.read()[j], &scratch[0..count]);
+            self.write()[j] = neuron.eval(ctx, self.read()[j], &scratch);
+            j += 1;
         }
         self.eval_count += 1;
     }
-}
-
-pub enum BitCode {
-    Neuron(u8),
-    Count(u8),
-    Input(u8)
 }
 
 fn try_repeat<F, R, I, O, E>(attempts: usize,
@@ -235,53 +252,53 @@ where F: FnMut(&I) -> Result<O, E>,
     unreachable!();
 }
 
-pub fn toposort_lossy<N, E, Ty, Ix, F>(
-    mut graph: &mut Graph<N, E, Ty, Ix>,
-    mut remove_edge: F
-    // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
-// ) -> Result<Vec<NodeIndex<Ix>>, Cycle<EdgeIndex<Ix>>>
-) -> Result<Vec<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>,
-            Cycle<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>>
-where
-Ix: petgraph::adj::IndexType,
-    // F: FnMut(&mut Graph<N, E, Ty, Ix>, EdgeIndex<Ix>),
-    F: FnMut(&mut Graph<N, E, Ty, Ix>, <&petgraph::Graph<N, E, Ty, Ix> as GraphBase>::EdgeId),
-    for<'a> &'a Graph<N, E, Ty, Ix>: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected
-    {
-    try_repeat(3,
-               |g| toposort(&g, None),
-               graph,
-               |g, e| {
-                   let troublemaker = e.node_id();
-                   for nodes in tarjan_scc(&*g) {
-                       if nodes.contains(&e.node_id()) {
-                           // This scc contains our trouble maker.
-                           for edge in g.edges_directed(troublemaker, Direction::Incoming) {
-                               if nodes.contains(&edge.source()) {
-                                   remove_edge(g, edge.id());
-                                   break;
-                               }
-                           }
+// pub fn toposort_lossy<N, E, Ty, Ix, F>(
+//     mut graph: &mut Graph<N, E, Ty, Ix>,
+//     mut remove_edge: F
+//     // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
+// // ) -> Result<Vec<NodeIndex<Ix>>, Cycle<EdgeIndex<Ix>>>
+// ) -> Result<Vec<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>,
+//             Cycle<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>>
+// where
+// Ix: petgraph::adj::IndexType,
+//     // F: FnMut(&mut Graph<N, E, Ty, Ix>, EdgeIndex<Ix>),
+//     F: FnMut(&mut Graph<N, E, Ty, Ix>, <&petgraph::Graph<N, E, Ty, Ix> as GraphBase>::EdgeId),
+//     for<'a> &'a Graph<N, E, Ty, Ix>: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected
+//     {
+//     try_repeat(3,
+//                |g| toposort(&g, None),
+//                graph,
+//                |g, e| {
+//                    let troublemaker = e.node_id();
+//                    for nodes in tarjan_scc(&*g) {
+//                        if nodes.contains(&e.node_id()) {
+//                            // This scc contains our trouble maker.
+//                            for edge in g.edges_directed(troublemaker, Direction::Incoming) {
+//                                if nodes.contains(&edge.source()) {
+//                                    remove_edge(g, edge.id());
+//                                    break;
+//                                }
+//                            }
 
-                           for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
-                               if nodes.contains(&edge.target()) {
-                                   remove_edge(g, edge.id());
-                                   break;
-                               }
-                           }
-                           // for neighbor in g.neighbors(troublemaker) {
-                           //     if nodes.contains(&neighbor) {
-                           //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
-                           //             g.edge_remove(edge.id());
-                           //         }
-                           //     }
-                           // }
-                       }
-                   }
-                   Ok(())
-               },
-    ).map(|r| r.0)
-}
+//                            for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
+//                                if nodes.contains(&edge.target()) {
+//                                    remove_edge(g, edge.id());
+//                                    break;
+//                                }
+//                            }
+//                            // for neighbor in g.neighbors(troublemaker) {
+//                            //     if nodes.contains(&neighbor) {
+//                            //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
+//                            //             g.edge_remove(edge.id());
+//                            //         }
+//                            //     }
+//                            // }
+//                        }
+//                    }
+//                    Ok(())
+//                },
+//     ).map(|r| r.0)
+// }
 
 impl Brain {
     fn new(graph: DiGraph<Neuron, ()>) -> Option<Brain> {
@@ -380,7 +397,7 @@ mod test {
         };
         let mut g = Graph::<Neuron, ()>::new();
         let a = g.add_node(Const(1.0));
-        let mut brain = BitBrain::new(g).unwrap();
+        let mut brain = BitBrain::new(&g).unwrap();
         assert_eq!(brain.storage_a.len(), 1);
         assert_eq!(brain.read()[0], 0.0);
         brain.eval(&ctx);
@@ -395,7 +412,7 @@ mod test {
         let mut g = Graph::<Neuron, ()>::new();
         let a = g.add_node(Const(1.0));
         let _e = g.add_edge(a, a, ());
-        let mut brain = BitBrain::new(g).unwrap();
+        let mut brain = BitBrain::new(&g).unwrap();
         assert_eq!(brain.storage_a.len(), 1);
         assert_eq!(brain.read()[0], 0.0);
         brain.eval(&ctx);
@@ -412,11 +429,26 @@ mod test {
         let b = g.add_node(Sum);
         let _ = g.add_edge(a, b, ());
         let _ = g.add_edge(b, a, ());
-        let mut brain = BitBrain::new(g).unwrap();
-        assert_eq!(brain.storage_a.len(), 1);
+        let _ = g.add_edge(b, b, ());
+        let mut brain = BitBrain::new(&g).unwrap();
+        assert_eq!(brain.code, [1,1,2,1,0]);
+        assert_eq!(brain.storage_a, [0.0, 0.0]);
+        assert_eq!(brain.storage_b, [0.0, 0.0]);
+        assert_eq!(brain.storage_a.len(), 2);
         assert_eq!(brain.read()[0], 0.0);
         brain.eval(&ctx);
         assert_eq!(brain.read()[0], 1.0);
+        assert_eq!(brain.storage_a, [0.0, 0.0]);
+        assert_eq!(brain.storage_b, [1.0, 0.0]);
+        brain.eval(&ctx);
+        assert_eq!(brain.read()[0], 1.0);
+        assert_eq!(brain.storage_a, [1.0, 1.0]);
+        assert_eq!(brain.storage_b, [1.0, 0.0]);
+        brain.eval(&ctx);
+        assert_eq!(brain.read()[0], 1.0);
+        assert_eq!(brain.read()[1], 2.0);
+        assert_eq!(brain.storage_a, [1.0, 1.0]);
+        assert_eq!(brain.storage_b, [1.0, 2.0]);
     }
 
 }
