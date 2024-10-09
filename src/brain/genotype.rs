@@ -2,6 +2,7 @@ use petgraph::{
     prelude::*,
     graph::DefaultIx,
     visit::{
+        GraphBase,
         IntoNodeReferences,
         IntoNeighborsDirected,
         IntoNodeIdentifiers,
@@ -138,8 +139,8 @@ impl BitBrain {
         // TODO: This could still have cycles. We can find the strongly
         // connected components (scc) and try to take one of the edges between
         // the nodes out.
-        let mut update = toposort(&mut g, None).ok()?;
-        // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); Ok(g) }).ok()?;
+        // let mut update = toposort(&g, None).ok()?;
+        // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); }).ok()?;
         update.sort_by(|ai, bi| order_neurons(&g[*ai], ai.index(), &g[*bi], bi.index()));
         let mut index = 0;
 
@@ -210,14 +211,17 @@ pub enum BitCode {
     Input(u8)
 }
 
-fn try_repeat<F, R, I, O, E>(attempts: usize, mut attempt: F, mut input: &mut I, mut remedy: R)
-                             -> Result<O, E>
+fn try_repeat<F, R, I, O, E>(attempts: usize,
+                             mut attempt: F,
+                             mut input: &mut I,
+                             mut remedy: R)
+                             -> Result<(O, usize), E>
 where F: FnMut(&I) -> Result<O, E>,
       R: FnMut(&mut I, E) -> Result<(), E>
 {
     for i in 0..attempts {
         match attempt(&input) {
-            Ok(output) => return Ok(output),
+            Ok(output) => return Ok((output, i)),
             Err(error) => {
                 if i + 1 == attempts {
                     return Err(error);
@@ -231,48 +235,53 @@ where F: FnMut(&I) -> Result<O, E>,
     unreachable!();
 }
 
-// pub fn toposort_lossy<G, F>(
-//     mut graph: G,
-//     mut remove_edge: F
-//     // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
-// ) -> Result<Vec<G::NodeId>, Cycle<G::NodeId>>
-// where
-//     F: FnMut(&mut G, G::EdgeId),
-//     G: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected {
-//     try_repeat(3,
-//                |g| toposort(g, None),
-//                graph,
-//                |g, e| {
-//                    let troublemaker = e.node_id();
-//                    for nodes in tarjan_scc::<G>(g) {
-//                        if nodes.contains(&e.node_id()) {
-//                            // This scc contains our trouble maker.
-//                            for edge in g.edges_directed(troublemaker, Direction::Incoming) {
-//                                if nodes.contains(&edge.source()) {
-//                                    remove_edge(g, edge.id());
-//                                    break;
-//                                }
-//                            }
+pub fn toposort_lossy<N, E, Ty, Ix, F>(
+    mut graph: &mut Graph<N, E, Ty, Ix>,
+    mut remove_edge: F
+    // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
+// ) -> Result<Vec<NodeIndex<Ix>>, Cycle<EdgeIndex<Ix>>>
+) -> Result<Vec<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>,
+            Cycle<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>>
+where
+Ix: petgraph::adj::IndexType,
+    // F: FnMut(&mut Graph<N, E, Ty, Ix>, EdgeIndex<Ix>),
+    F: FnMut(&mut Graph<N, E, Ty, Ix>, <&petgraph::Graph<N, E, Ty, Ix> as GraphBase>::EdgeId),
+    for<'a> &'a Graph<N, E, Ty, Ix>: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected
+    {
+    try_repeat(3,
+               |g| toposort(&g, None),
+               graph,
+               |g, e| {
+                   let troublemaker = e.node_id();
+                   for nodes in tarjan_scc(&*g) {
+                       if nodes.contains(&e.node_id()) {
+                           // This scc contains our trouble maker.
+                           for edge in g.edges_directed(troublemaker, Direction::Incoming) {
+                               if nodes.contains(&edge.source()) {
+                                   remove_edge(g, edge.id());
+                                   break;
+                               }
+                           }
 
-//                            for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
-//                                if nodes.contains(&edge.target()) {
-//                                    remove_edge(g, edge.id());
-//                                    break;
-//                                }
-//                            }
-//                            // for neighbor in g.neighbors(troublemaker) {
-//                            //     if nodes.contains(&neighbor) {
-//                            //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
-//                            //             g.edge_remove(edge.id());
-//                            //         }
-//                            //     }
-//                            // }
-//                        }
-//                    }
-//                    Ok(())
-//                },
-//     )
-// }
+                           for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
+                               if nodes.contains(&edge.target()) {
+                                   remove_edge(g, edge.id());
+                                   break;
+                               }
+                           }
+                           // for neighbor in g.neighbors(troublemaker) {
+                           //     if nodes.contains(&neighbor) {
+                           //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
+                           //             g.edge_remove(edge.id());
+                           //         }
+                           //     }
+                           // }
+                       }
+                   }
+                   Ok(())
+               },
+    ).map(|r| r.0)
+}
 
 impl Brain {
     fn new(graph: DiGraph<Neuron, ()>) -> Option<Brain> {

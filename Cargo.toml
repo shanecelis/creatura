@@ -17,7 +17,7 @@ bevy_panorbit_camera = "0.19.0"
 avian3d = { git = "https://github.com/Jondolf/avian", version = "0.1.2" }
 nalgebra = "0.32"
 parry3d = "0.15"
-petgraph = "0.6.4"
+petgraph = "0.6.5"
 rand = "0.8.5"
 avian_pickup = { git = "https://github.com/janhohenheim/avian_pickup", version = "0.1.0" }
 # avian_interpolation3d = { git = "https://github.com/janhohenheim/avian_interpolation", version = "0.1.0" }
@@ -27,5 +27,6 @@ name = "main"
 doc = false
 
 [patch.crates-io]
+petgraph = { path = '../petgraph' }
 # avian3d = { path = '../avian/crates/avian3d' }
 # parry3d = { path = '../parry/crates/parry3d' }
