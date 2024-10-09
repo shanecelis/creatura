@@ -8,7 +8,8 @@ use bevy::{
     time::run_fixed_main_schedule,
 };
 
-use creatura::{*, graph::*};
+use creatura::{*, graph::*, brain::*};
+use petgraph::prelude::*;
 
 fn main() {
     let mut app = App::new();
@@ -22,20 +23,11 @@ fn main() {
         AvianPickupPlugin::default(),
         // Add interpolation
         // AvianInterpolationPlugin::default(),
-        plugin,
+        CreaturaPlugin,
     ))
-    // .add_plugins(DspPlugin::default())
     .insert_resource(ClearColor(blue))
-    // .add_dsp_source(white_noise, SourceType::Dynamic)
-    // .add_systems(Startup, setup)
     .add_systems(Startup, setup_env)
     .add_systems(Startup, construct_creature)
-    // .add_systems(PostStartup, play_noise)
-    // .add_systems(Update, bevy::window::close_on_esc)
-    // .add_systems(Update, oscillate_motors)
-    // .add_systems(FixedUpdate, sync_muscles)
-    // .add_systems(Update, graph::flex_muscles)
-    // .add_systems(Update, handle_pickup_input)
     .add_plugins(PanOrbitCameraPlugin)
     //
         .add_systems(
@@ -80,12 +72,6 @@ fn construct_creature(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
-
-    // let mut parent = Part {
-    //     extents: Vector::new(1., 1., 1.),
-    //     position: Vector::Y,
-    //     rotation: Quaternion::IDENTITY,
-    // };
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
     let (genotype, root) = snake_graph(3);
@@ -107,27 +93,31 @@ fn construct_creature(
                                       |a, b, commands| Some({let id = build_muscle(a, b, commands);
                                                              muscles.push(id);
                                                              id })).expect("creature") {
-        // eprintln!("Made entity");
 
     }
+
+    let mut g = DiGraph::new();
+    let a = g.add_node(Neuron::Sin { amp: 1.0, freq: 1.0, phase: 0.0 });
+    // let a = g.add_node(Neuron::Const(1.0));
+    let b = g.add_node(Neuron::Muscle);
+    g.add_edge(a, b, ());
+    let brain = BitBrain::new(&g).unwrap();
 
     commands.spawn((
         NervousSystem {
             muscles,
             sensors: vec![],
         },
-        KeyboardBrain,
-                   ));
-    // let mut muscles = vec![];
+        // KeyboardBrain,
+        brain
+    ));
 
 }
 
 fn setup_env(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    // mut dsp_sources: ResMut<Assets<DspSource>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    // dsp_manager: Res<DspManager>,
 ) {
     let ground_color = Color::srgb_u8(226, 199, 184);
     // Ground
@@ -173,7 +163,6 @@ fn setup_env(
         },
         // InputAccumulation::default(),
     ));
-
 }
 
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
@@ -189,24 +178,7 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
             // .with_angular_velocity_damping(1.0)
                 .with_compliance(1.0 / 100.0),
         )
-        .insert(
-            // MuscleUnit {
-            //     // iter: dsp_sources.add(dsp)
-            //     // iter: dsp.into_iter()
-            //     unit: Box::new({ let mut unit = white_noise_mono();
-            //                      unit.set_sample_rate(1000.0);
-            //                      unit}),
-            //     min: rest_length * length_scale,
-            //     max: rest_length * (1.0 + length_scale),
-            // }
-
-            // SpringOscillator {
-            //     freq: 1.0,
-            //     min: rest_length * length_scale,
-            //     max: rest_length * (1.0 + length_scale),
-            // },
-            Muscle::default(),
-        )
+        .insert(Muscle::default())
         .insert(MuscleRange {
             min: 0.0,
             max: rest_length * 2.0,
@@ -390,23 +362,4 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
 //         },
 //     ));
 
-//     // Light
-//     commands.spawn(DirectionalLightBundle {
-//         directional_light: DirectionalLight {
-//             illuminance: 1000.0,
-//             shadows_enabled: true,
-//             ..default()
-//         },
-//         transform: Transform::from_xyz(1.0, 8.0, 1.0).looking_at(Vec3::ZERO, Dir3::Y),
-//         ..default()
-//     });
-
-//     // Camera
-//     commands.spawn((
-//         Camera3dBundle {
-//             transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-//             ..default()
-//         },
-//         PanOrbitCamera::default(),
-//     ));
 // }

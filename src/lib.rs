@@ -42,11 +42,18 @@ pub struct Muscle {
     pub value: Scalar,
 }
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(Update, keyboard_brain)
-        .add_systems(Update, oscillate_muscles)
-        .add_systems(Update, oscillate_brain)
-        .add_systems(FixedUpdate, sync_muscles);
+pub struct CreaturaPlugin;
+
+impl Plugin for CreaturaPlugin {
+
+    fn build(&self, app: &mut App) {
+        app
+            .add_plugins(brain::plugin)
+            .add_systems(Update, keyboard_brain)
+            .add_systems(Update, oscillate_muscles)
+            .add_systems(Update, oscillate_brain)
+            .add_systems(FixedUpdate, sync_muscles);
+    }
 }
 
 pub fn sync_muscles(
@@ -95,15 +102,6 @@ pub fn oscillate_brain(
         }
     }
 }
-
-// pub fn oscillate_motors(time: Res<Time>, mut joints: Query<(&mut DistanceJoint, &SpringOscillator)>) {
-//     let seconds = time.elapsed_seconds();
-//     for (mut joint, oscillator) in &mut joints {
-//         joint.rest_length = (oscillator.max - oscillator.min)
-//             * ((TAU * oscillator.freq * seconds).sin() * 0.5 + 0.5)
-//             + oscillator.min;
-//     }
-// }
 
 #[derive(Component)]
 pub struct KeyboardBrain;

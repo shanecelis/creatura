@@ -1,3 +1,4 @@
+use bevy::prelude::*;
 use petgraph::{
     prelude::*,
     graph::DefaultIx,
@@ -17,6 +18,7 @@ use petgraph::{
         DfsSpace,
         Cycle,
     }};
+use crate::{NervousSystem, Muscle};
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
 
@@ -49,6 +51,35 @@ pub enum Neuron {
 
 pub struct Context {
     time: f32,
+}
+
+pub fn plugin(app: &mut App) {
+    app
+        .add_systems(Update, bitbrain_update);
+}
+
+pub fn bitbrain_update(
+    time: Res<Time>,
+    mut nervous_systems: Query<(&NervousSystem, &mut BitBrain)>,
+    mut muscles_query: Query<&mut Muscle>) {
+    let ctx = Context {
+        time: time.elapsed_seconds()
+    };
+    for (nervous_system, mut brain) in &mut nervous_systems {
+        let sensors = &nervous_system.sensors;
+        // TODO: Update the sensor values.
+        brain.eval(&ctx);
+        let muscles = &nervous_system.muscles;
+        for i in 0..muscles.len() {
+            if let Ok(mut muscle) = muscles_query.get_mut(muscles[i]) {
+                if let Some(v) = brain.read_muscle(i) {
+                    muscle.value = dbg!(*v);
+                }
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 impl Neuron {
@@ -104,6 +135,7 @@ pub struct Brain {
     storage: Vec<f32>,
 }
 
+#[derive(Component, Debug)]
 pub struct BitBrain {
     neurons: Vec<Neuron>,
     /// This "bit code" follows a simple format:
@@ -123,7 +155,7 @@ pub struct BitBrain {
 
 impl BitBrain {
 
-    fn new(graph: &DiGraph<Neuron, ()>) -> Option<BitBrain> {
+    pub fn new(graph: &DiGraph<Neuron, ()>) -> Option<BitBrain> {
         // let count: u8 = graph.node_references().map(|(_i, n)| n.storage()).sum();
         let count: usize = graph.node_count();
         // let mut g = graph.clone();
@@ -170,11 +202,12 @@ impl BitBrain {
         let mut neurons: Vec<Neuron> = vec![];
         let mut code = vec![];
         for (i, node_index) in update.iter().enumerate() {
+            use petgraph::Direction::*;
             neurons.push(graph[*node_index]);
             // This is implicit in its ordering.
             // code.push(i as u8);
-            code.push(graph.edges_directed(*node_index, Direction::Incoming).count() as u8);
-            for edge in graph.edges_directed(*node_index, Direction::Incoming) {
+            code.push(graph.edges_directed(*node_index, Incoming).count() as u8);
+            for edge in graph.edges_directed(*node_index, Incoming) {
                 code.push(update.iter().position(|n| *n == edge.source()).expect("neuron position") as u8);
             }
         }
@@ -187,8 +220,13 @@ impl BitBrain {
             storage_b: vec![0.0; count.into()],
         })
     }
+
+    pub fn read_muscle(&self, index: usize) -> Option<&f32> {
+        self.read().get(self.storage_a.len().saturating_sub(index + 1))
+    }
+
     /// Return the read storage.
-    fn read(&mut self) -> &[f32] {
+    pub fn read(&self) -> &[f32] {
         if self.eval_count % 2 == 0 {
             &self.storage_a
         } else {
@@ -197,7 +235,7 @@ impl BitBrain {
     }
 
     /// Return the write storage.
-    fn write(&mut self) -> &mut [f32] {
+    pub fn write(&mut self) -> &mut [f32] {
         if self.eval_count % 2 == 1 {
             &mut self.storage_a
         } else {
@@ -206,7 +244,7 @@ impl BitBrain {
     }
 
     /// Evaluate all nodes in the network in topological order.
-    fn eval(&mut self, ctx: &Context) {
+    pub fn eval(&mut self, ctx: &Context) {
         let mut i: usize = 0;
         let mut scratch = vec![];
         let mut j = 0;

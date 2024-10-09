@@ -1,3 +1,3 @@
 mod genotype;
-use genotype::*;
+pub use genotype::*;
 pub mod lessin;
