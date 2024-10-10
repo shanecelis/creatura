@@ -1,4 +1,9 @@
 use bevy::prelude::*;
+use rand::Rng;
+use genevo::{
+    operator::MutationOp,
+    mutation::value::RandomValueMutation,
+};
 use petgraph::{
     prelude::*,
     graph::DefaultIx,
@@ -48,6 +53,84 @@ pub enum Neuron {
     /// Outputs the absolute difference of input units.
     AbsDiff,
 }
+
+impl From<Vec4> for Neuron {
+    fn from(v: Vec4) -> Neuron {
+        use Neuron::*;
+        let variant_count = 15;
+        match (v.x * variant_count as f32) as usize {
+            0 => Sensor,
+            1 => Muscle,
+            2 => Sin { amp: v.y, freq: v.z, phase: v.w },
+            3 => Complement,
+            4 => Const(v.y),
+            5 => Scale(v.y),
+            6 => Mult,
+            7 => Div,
+            8 => Sum,
+            9 => Diff,
+            10 => Deriv { dir: v.z > 0.5 },
+            11 => Threshold(v.y),
+            12 => Switch(v.y),
+            13 => Delay((v.w * 5.0) as u8),
+            14 => AbsDiff,
+            _ => { todo!(); }
+        }
+    }
+}
+
+#[derive(Debug, Deref, DerefMut)]
+struct NVec4(Vec4);
+
+impl RandomValueMutation for NVec4 {
+
+    fn random_mutated<R>(value: Self, min_value: &Self, max_value: &Self, rng: &mut R) -> Self
+        where
+        R: Rng + Sized
+    {
+        NVec4(Vec4::new(RandomValueMutation::random_mutated(value.x,
+                                                            &min_value.x,
+                                                            &max_value.x,
+                                                            rng),
+                        RandomValueMutation::random_mutated(value.y,
+                                                            &min_value.y,
+                                                            &max_value.y,
+                                                            rng),
+                        RandomValueMutation::random_mutated(value.z,
+                                                            &min_value.z,
+                                                            &max_value.z,
+                                                            rng),
+                        RandomValueMutation::random_mutated(value.w,
+                                                            &min_value.w,
+                                                            &max_value.w,
+                                                            rng)))
+    }
+
+}
+
+struct NeuronMutationOp {
+    mutation_rate: f64,
+}
+
+// impl MutationOp<Neuron> for NeuronMutationOp {
+impl RandomValueMutation for Neuron {
+    // fn mutate<R>(&self, mut genome: Neuron, rng: &mut R) -> Neuron
+    //     where
+    //     R: Rng + Sized
+    // {
+    //     if self.mutation_rate < rng.gen::<f64>() {
+
+    //     }
+    // }
+    fn random_mutated<R>(value: Self, min_value: &Self, max_value: &Self, rng: &mut R) -> Self
+        where
+        R: Rng + Sized
+    {
+        todo!()
+
+    }
+}
+
 
 pub struct Context {
     time: f32,
