@@ -31,12 +31,13 @@ pub enum Layer {
     PartOdd,
 }
 
-#[derive(Component)]
+/// Sensor `value` $\in [0, 1]$.
+#[derive(Component, Default)]
 pub struct Sensor {
     pub value: Scalar,
 }
 
-/// Muscle `value` $\in [-1, 1]$.
+/// Muscle `value` $\in [0, 1]$.
 #[derive(Component, Default)]
 pub struct Muscle {
     pub value: Scalar,
@@ -57,12 +58,20 @@ impl Plugin for CreaturaPlugin {
 }
 
 pub fn sync_muscles(
-    mut joints: Query<(&mut DistanceJoint, &Muscle, Option<&MuscleRange>), Changed<Muscle>>,
+    mut joints: Query<(&mut DistanceJoint, &Muscle, Option<&MuscleRange>, Option<&mut Sensor>), Changed<Muscle>>,
 ) {
-    for (mut joint, muscle, range) in &mut joints {
+    for (mut joint, muscle, range, sensor) in &mut joints {
+        if let Some(mut sensor) = sensor {
+            if let Some(range) = range {
+                let delta = range.max - range.min;
+                sensor.value = (joint.rest_length - range.min) / delta;
+            } else {
+                sensor.value = joint.rest_length;
+            }
+        }
         if let Some(range) = range {
             let delta = range.max - range.min;
-            joint.rest_length = (muscle.value / 2.0 + 0.5) * delta + range.min;
+            joint.rest_length = muscle.value * delta + range.min;
         } else {
             joint.rest_length = muscle.value;
         }

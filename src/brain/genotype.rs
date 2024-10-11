@@ -60,7 +60,7 @@ impl From<Vec4> for Neuron {
     fn from(v: Vec4) -> Neuron {
         use Neuron::*;
         let variant_count = 15;
-        match (v.x * variant_count as f32) as usize {
+        match (v.x * variant_count as f32) as usize % 15 {
             0 => Sensor,
             1 => Muscle,
             2 => Sin { amp: v.y, freq: v.z, phase: v.w },
@@ -81,6 +81,7 @@ impl From<Vec4> for Neuron {
     }
 }
 
+<<<<<<< HEAD
 /// Try to avoid using this since it converts to a lossy representation.
 impl From<Neuron> for Vec4 {
     fn from(n: Neuron) -> Vec4 {
@@ -140,6 +141,16 @@ impl From<Neuron> for Vec4 {
 
 #[derive(Debug, Deref, DerefMut, PartialEq, Clone, Copy)]
 struct NVec4(Vec4);
+=======
+#[derive(Debug, Deref, DerefMut)]
+pub struct NVec4(Vec4);
+
+impl From<Vec4> for NVec4 {
+    fn from(v: Vec4) -> NVec4 {
+        NVec4(v)
+    }
+}
+>>>>>>> 2c41548 (feature: Add mutator trait.)
 
 impl RandomValueMutation for NVec4 {
 
@@ -175,23 +186,34 @@ struct NeuronMutationOp {
     mutation_rate: f64,
 }
 
-impl Genotype for BrainGraph {
-    type Dna = NVec4;
-}
-impl GeneticOperator for NeuronMutationOp {
-    fn name() -> String {
-        "neuron-mutation".into()
-    }
-}
+trait Mutator<G> {
+    fn mutate(&self, value: &mut G) -> u32;
 
-impl MutationOp<BrainGraph> for NeuronMutationOp {
-    fn mutate<R>(&self, mut genome: BrainGraph, rng: &mut R) -> BrainGraph
-        where
-        R: Rng + Sized
-    {
-        if self.mutation_rate < rng.gen::<f64>() {
-
+    fn repeat(self, repeat_count: usize) -> impl Mutator<G> where Self: Sized {
+        move |genome: &mut G| {
+            let mut count = 0u32;
+            for _ in 0..repeat_count {
+                count += self.mutate(genome);
+            }
+            count
         }
+    }
+
+    fn for_vec(self) -> impl Mutator<Vec<G>> where Self: Sized {
+        move |genomes: &mut Vec<G>| {
+            let mut count = 0u32;
+            for genome in genomes {
+                count += self.mutate(genome);
+            }
+            count
+        }
+    }
+
+}
+
+impl<F,G> Mutator<G> for F where F: Fn(&mut G) -> u32 {
+    fn mutate(&self, value: &mut G) -> u32 {
+        self(value)
     }
 }
 
@@ -239,7 +261,7 @@ pub fn bitbrain_update(
         for i in 0..muscles.len() {
             if let Ok(mut muscle) = muscles_query.get_mut(muscles[i]) {
                 if let Some(v) = brain.read_muscle(i) {
-                    muscle.value = dbg!(*v);
+                    muscle.value = *v;
                 }
             } else {
                 break;
@@ -263,7 +285,7 @@ impl Neuron {
             Div => inputs.first().map(|f| f / inputs.into_iter().skip(1).sum::<f32>()).unwrap_or(0.0),
             Diff => inputs.first().map(|f| f - inputs.into_iter().skip(1).sum::<f32>()).unwrap_or(0.0),
             Deriv { dir } => todo!("Deriv"),
-            Threshold(t) => inputs.first().and_then(|f| (*f >= 0.0).then_some(1.0)).unwrap_or(0.0),
+            Threshold(t) => inputs.first().and_then(|f| (*f >= *t).then_some(1.0)).unwrap_or(0.0),
             Switch(t) => inputs.first().and_then(|f| (*f >= 0.0).then_some(inputs.into_iter().skip(1).sum::<f32>())).unwrap_or(0.0),
             Delay(count) => todo!("Delay"),
             AbsDiff => inputs.first().map(|f| (f - inputs.into_iter().skip(1).sum::<f32>()).abs()).unwrap_or(0.0),
@@ -367,7 +389,7 @@ impl BitBrain {
 
         let mut neurons: Vec<Neuron> = vec![];
         let mut code = vec![];
-        for (i, node_index) in update.iter().enumerate() {
+        for node_index in &update {
             use petgraph::Direction::*;
             neurons.push(graph[*node_index]);
             // This is implicit in its ordering.
