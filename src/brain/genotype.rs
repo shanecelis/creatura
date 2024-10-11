@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use rand::Rng;
 use genevo::{
-    operator::MutationOp,
+    genetic::Genotype,
+    operator::{GeneticOperator,
+               MutationOp},
     mutation::value::RandomValueMutation,
 };
 use petgraph::{
@@ -79,7 +81,64 @@ impl From<Vec4> for Neuron {
     }
 }
 
-#[derive(Debug, Deref, DerefMut)]
+/// Try to avoid using this since it converts to a lossy representation.
+impl From<Neuron> for Vec4 {
+    fn from(n: Neuron) -> Vec4 {
+        use Neuron::*;
+        let mut v = Vec4::ZERO;
+        match n {
+            Sensor => v.x = 0.0,
+            Muscle => v.x = 1.0,
+            Sin { amp, freq, phase } => {
+                v.x = 2.0;
+                v.y = amp;
+                v.z = freq;
+                v.w = phase;
+            },
+            Complement => v.x = 3.0,
+            Const(c) => {
+                v.x = 4.0;
+                v.y = c;
+            },
+            Scale(s) => {
+                v.x = 5.0;
+                v.y = s;
+            },
+            Mult => v.x = 6.0,
+            /// Divide first input by second
+            Div => v.x = 7.0,
+            /// Sums inputs
+            Sum => v.x = 8.0,
+            /// Subtracts first input from second.
+            Diff => v.x = 9.0,
+            /// Outputs difference between current and previous input, scaled to units of change 0.1 sec with evolvable direction flag
+            Deriv { dir } => {
+                v.x = 10.0;
+                v.y = if dir { 1.0 } else { 0.0 };
+            },
+            /// Outputs 1 if >= .0; otherwise outputs 0.
+            Threshold(t) => {
+                v.x = 11.0;
+                v.y = t;
+            },
+            /// If first input is >= .0, output second input; otherwise outputs 0.
+            Switch(t) => {
+                v.x = 12.0;
+                v.y = t;
+            },
+            /// Applies an evolvable delay to input signal.
+            Delay(d) => {
+                v.x = 13.0;
+                v.w = d as f32 / 5.0;
+            },
+            /// Outputs the absolute difference of input units.
+            AbsDiff => v.x = 14.0,
+        }
+        v
+    }
+}
+
+#[derive(Debug, Deref, DerefMut, PartialEq, Clone, Copy)]
 struct NVec4(Vec4);
 
 impl RandomValueMutation for NVec4 {
@@ -108,8 +167,32 @@ impl RandomValueMutation for NVec4 {
 
 }
 
+#[derive(Clone, Debug)]
+struct BrainGraph(DiGraph<NVec4, ()>);
+
+#[derive(Clone, Debug)]
 struct NeuronMutationOp {
     mutation_rate: f64,
+}
+
+impl Genotype for BrainGraph {
+    type Dna = NVec4;
+}
+impl GeneticOperator for NeuronMutationOp {
+    fn name() -> String {
+        "neuron-mutation".into()
+    }
+}
+
+impl MutationOp<BrainGraph> for NeuronMutationOp {
+    fn mutate<R>(&self, mut genome: BrainGraph, rng: &mut R) -> BrainGraph
+        where
+        R: Rng + Sized
+    {
+        if self.mutation_rate < rng.gen::<f64>() {
+
+        }
+    }
 }
 
 // impl MutationOp<Neuron> for NeuronMutationOp {
