@@ -131,7 +131,7 @@ impl From<Neuron> for Vec4 {
 }
 
 #[derive(Debug, Deref, DerefMut, PartialEq, Clone, Copy)]
-struct NVec4(Vec4);
+pub struct NVec4(pub Vec4);
 
 impl From<Vec4> for NVec4 {
     fn from(v: Vec4) -> NVec4 {
@@ -305,21 +305,7 @@ pub struct BitBrain {
 
 impl BitBrain {
     pub fn new(graph: &DiGraph<Neuron, ()>) -> Option<BitBrain> {
-        // let count: u8 = graph.node_references().map(|(_i, n)| n.storage()).sum();
         let count: usize = graph.node_count();
-        // let mut g = graph.clone();
-        // let mut cycles = vec![];
-        // for edge in g.edge_references() {
-        //     if edge.source() == edge.target() {
-        //         cycles.push(edge.id());
-        //     }
-        // }
-        // for edge_id in cycles {
-        //     g.remove_edge(edge_id);
-        // }
-        // TODO: This could still have cycles. We can find the strongly
-        // connected components (scc) and try to take one of the edges between
-        // the nodes out.
         let mut update = {
             let mut u = None;
             let mut g = graph.clone();
@@ -345,10 +331,7 @@ impl BitBrain {
             }
             u?
         };
-        // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); Ok(g) }).ok()?;
         update.sort_by(|ai, bi| order_neurons(&graph[*ai], ai.index(), &graph[*bi], bi.index()));
-
-        // let mut brain = graph.clone();//map(|_i, n| (*n, 0), |_i, e| *e);
 
         let mut neurons: Vec<Neuron> = vec![];
         let mut code = vec![];

@@ -136,12 +136,13 @@ where
         .map(|generator| generator.into_mutator(|generated, mutated| *mutated += generated))
 }
 
-pub fn rnd_prob<R>(rng: &mut R) -> f64
+pub fn rnd_prob<R>(rng: &mut R) -> f32
 where
     R: Rng,
 {
     rng.sample(rand::distributions::Open01)
 }
+
 
 #[cfg(test)]
 mod test {
@@ -149,7 +150,7 @@ mod test {
     #[test]
     fn test_generator() {
         let mut rng = rand::thread_rng();
-        let v: Vec<f64> = rnd_prob.into_iter(&mut rng).take(2).collect();
+        let v: Vec<f32> = rnd_prob.into_iter(&mut rng).take(2).collect();
         assert!(v[0] > 0.0 && v[0] < 1.0);
         assert!(v[1] > 0.0 && v[1] < 1.0);
     }

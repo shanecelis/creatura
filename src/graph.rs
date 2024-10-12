@@ -1,7 +1,43 @@
 use super::*;
-use crate::rdfs::*;
+use crate::{rdfs::*, operator::*};
 use core::f32::consts::FRAC_PI_4;
-use petgraph::{graph::DefaultIx, prelude::*};
+use petgraph::{graph::{DefaultIx, IndexType}, prelude::*, EdgeType};
+use rand::Rng;
+
+fn mutate_nodes<N,E,Ty,Ix,R>(mutator: impl Mutator<N, R>, mutation_rate: f32)
+                             -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng {
+    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+        let mut count = 0u32;
+        for node in graph.node_weights_mut() {
+            if mutation_rate < rnd_prob(rng) {
+                mutator.mutate(node, rng);
+                count += 1;
+            }
+        }
+        count
+    }
+}
+
+fn mutate_edges<N,E,Ty,Ix,R>(mutator: impl Mutator<E, R>, mutation_rate: f32)
+                             -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng {
+    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+        let mut count = 0u32;
+        for edge in graph.edge_weights_mut() {
+            if mutation_rate < rnd_prob(rng) {
+                count += mutator.mutate(edge, rng);
+            }
+        }
+        count
+    }
+}
 
 pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<DefaultIx>) {
     let part = Part {
