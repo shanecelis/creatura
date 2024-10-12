@@ -19,10 +19,6 @@ use petgraph::{
         IntoNodeReferences, NodeIndexable, Visitable,
     },
 };
-use rand::{
-    distributions::uniform::{SampleRange, SampleUniform},
-    Rng,
-};
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
 
@@ -90,7 +86,6 @@ impl From<Vec4> for Neuron {
     }
 }
 
-<<<<<<< HEAD
 /// Try to avoid using this since it converts to a lossy representation.
 impl From<Neuron> for Vec4 {
     fn from(n: Neuron) -> Vec4 {
@@ -150,16 +145,12 @@ impl From<Neuron> for Vec4 {
 
 #[derive(Debug, Deref, DerefMut, PartialEq, Clone, Copy)]
 struct NVec4(Vec4);
-=======
-#[derive(Debug, Deref, DerefMut)]
-pub struct NVec4(Vec4);
 
 impl From<Vec4> for NVec4 {
     fn from(v: Vec4) -> NVec4 {
         NVec4(v)
     }
 }
->>>>>>> 2c41548 (feature: Add mutator trait.)
 
 impl RandomValueMutation for NVec4 {
     fn random_mutated<R>(value: Self, min_value: &Self, max_value: &Self, rng: &mut R) -> Self
