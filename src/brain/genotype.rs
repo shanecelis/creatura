@@ -221,20 +221,20 @@ impl Neuron {
         use Neuron::*;
         match self {
             Sensor => state,
-            Muscle => inputs.into_iter().sum(),
+            Muscle => inputs.iter().sum(),
             Sin { amp, freq, phase } => (context.time * freq * TAU + phase).sin() * amp / 2.0 + 0.5,
-            Complement => 1.0 - inputs.into_iter().sum::<f32>(),
+            Complement => 1.0 - inputs.iter().sum::<f32>(),
             Const(c) => *c,
-            Scale(s) => s * inputs.into_iter().sum::<f32>(),
-            Sum => inputs.into_iter().sum::<f32>(),
-            Mult => inputs.into_iter().product(),
+            Scale(s) => s * inputs.iter().sum::<f32>(),
+            Sum => inputs.iter().sum::<f32>(),
+            Mult => inputs.iter().product(),
             Div => inputs
                 .first()
-                .map(|f| f / inputs.into_iter().skip(1).sum::<f32>())
+                .map(|f| f / inputs.iter().skip(1).sum::<f32>())
                 .unwrap_or(0.0),
             Diff => inputs
                 .first()
-                .map(|f| f - inputs.into_iter().skip(1).sum::<f32>())
+                .map(|f| f - inputs.iter().skip(1).sum::<f32>())
                 .unwrap_or(0.0),
             Deriv { dir } => todo!("Deriv"),
             Threshold(t) => inputs
@@ -243,12 +243,12 @@ impl Neuron {
                 .unwrap_or(0.0),
             Switch(t) => inputs
                 .first()
-                .and_then(|f| (*f >= 0.0).then_some(inputs.into_iter().skip(1).sum::<f32>()))
+                .and_then(|f| (*f >= *t).then_some(inputs.iter().skip(1).sum::<f32>()))
                 .unwrap_or(0.0),
             Delay(count) => todo!("Delay"),
             AbsDiff => inputs
                 .first()
-                .map(|f| (f - inputs.into_iter().skip(1).sum::<f32>()).abs())
+                .map(|f| (f - inputs.iter().skip(1).sum::<f32>()).abs())
                 .unwrap_or(0.0),
         }
     }
@@ -346,7 +346,6 @@ impl BitBrain {
         };
         // let mut update = toposort_lossy(&mut g, |g: &mut DiGraph<Neuron, ()>, e| { g.remove_edge(e); Ok(g) }).ok()?;
         update.sort_by(|ai, bi| order_neurons(&graph[*ai], ai.index(), &graph[*bi], bi.index()));
-        let mut index = 0;
 
         // let mut brain = graph.clone();//map(|_i, n| (*n, 0), |_i, e| *e);
 
@@ -372,8 +371,8 @@ impl BitBrain {
             neurons,
             code,
             eval_count: 0,
-            storage_a: vec![0.0; count.into()],
-            storage_b: vec![0.0; count.into()],
+            storage_a: vec![0.0; count],
+            storage_b: vec![0.0; count],
         })
     }
 
@@ -426,7 +425,7 @@ impl BitBrain {
 fn try_repeat<F, R, I, O, E>(
     attempts: usize,
     mut attempt: F,
-    mut input: &mut I,
+    input: &mut I,
     mut remedy: R,
 ) -> Result<(O, usize), E>
 where
@@ -434,15 +433,13 @@ where
     R: FnMut(&mut I, E) -> Result<(), E>,
 {
     for i in 0..attempts {
-        match attempt(&input) {
+        match attempt(input) {
             Ok(output) => return Ok((output, i)),
             Err(error) => {
                 if i + 1 == attempts {
                     return Err(error);
                 }
-                if let Err(error) = remedy(&mut input, error) {
-                    return Err(error);
-                }
+                remedy(input, error)?
             }
         }
     }
@@ -604,7 +601,7 @@ mod test {
     fn bitbrain_eval() {
         let ctx = Context { time: 0.0 };
         let mut g = Graph::<Neuron, ()>::new();
-        let a = g.add_node(Const(1.0));
+        let _a = g.add_node(Const(1.0));
         let mut brain = BitBrain::new(&g).unwrap();
         assert_eq!(brain.storage_a.len(), 1);
         assert_eq!(brain.read()[0], 0.0);

@@ -1,25 +1,15 @@
 use crate::{Muscle, NervousSystem};
 use bevy::prelude::*;
 use genevo::{mutation::value::RandomValueMutation, operator::MutationOp};
-use petgraph::{
-    algo::{tarjan_scc, toposort, Cycle, DfsSpace},
-    graph::DefaultIx,
-    prelude::*,
-    visit::{
-        GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers,
-        IntoNodeReferences, NodeIndexable, Visitable,
-    },
-};
 use rand::{
     distributions::uniform::{SampleRange, SampleUniform},
     Rng,
 };
 use rand_distr::{Distribution, Normal, StandardNormal};
 use std::cmp::Ordering;
-use std::f32::consts::TAU;
 use std::ops::AddAssign;
 
-trait Generator<R> {
+pub trait Generator<R> {
     type G;
     /// Generate a genome.
     fn generate(&self, rng: &mut R) -> Self::G;
@@ -55,7 +45,7 @@ where
     }
 }
 
-trait Mutator<G, R> {
+pub trait Mutator<G, R> {
     /// Mutate the `genome` returning the number of mutations that occurred.
     fn mutate(&self, genome: &mut G, rng: &mut R) -> u32;
 
