@@ -1,36 +1,23 @@
+use crate::{Muscle, NervousSystem};
 use bevy::prelude::*;
-use std::ops::AddAssign;
-use rand_distr::{Normal, Distribution, StandardNormal};
-use rand::{
-    Rng,
-    distributions::uniform::{SampleUniform, SampleRange},
-};
-use genevo::{
-    operator::MutationOp,
-    mutation::value::RandomValueMutation,
-};
+use genevo::{mutation::value::RandomValueMutation, operator::MutationOp};
 use petgraph::{
-    prelude::*,
+    algo::{tarjan_scc, toposort, Cycle, DfsSpace},
     graph::DefaultIx,
+    prelude::*,
     visit::{
-        GraphBase,
-        IntoNodeReferences,
-        IntoNeighborsDirected,
-        IntoNodeIdentifiers,
-        Visitable,
-        NodeIndexable,
-        IntoNeighbors,
-        IntoEdgesDirected
+        GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers,
+        IntoNodeReferences, NodeIndexable, Visitable,
     },
-    algo::{
-        toposort,
-        tarjan_scc,
-        DfsSpace,
-        Cycle,
-    }};
-use crate::{NervousSystem, Muscle};
+};
+use rand::{
+    distributions::uniform::{SampleRange, SampleUniform},
+    Rng,
+};
+use rand_distr::{Distribution, Normal, StandardNormal};
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
+use std::ops::AddAssign;
 
 trait Generator<R> {
     type G;
@@ -38,11 +25,17 @@ trait Generator<R> {
     fn generate(&self, rng: &mut R) -> Self::G;
 
     fn into_iter(self, rng: &mut R) -> impl Iterator<Item = Self::G>
-    where Self: Sized {
+    where
+        Self: Sized,
+    {
         std::iter::repeat_with(move || self.generate(rng))
     }
 
-    fn into_mutator<F>(self, f: F) -> impl Mutator<Self::G, R> where Self: Sized, F: Fn(Self::G, &mut Self::G) {
+    fn into_mutator<F>(self, f: F) -> impl Mutator<Self::G, R>
+    where
+        Self: Sized,
+        F: Fn(Self::G, &mut Self::G),
+    {
         move |genome: &mut Self::G, rng: &mut R| {
             let generated = self.generate(rng);
             f(generated, genome);
@@ -51,7 +44,10 @@ trait Generator<R> {
     }
 }
 
-impl<F,G,R> Generator<R> for F where F: Fn(&mut R) -> G {
+impl<F, G, R> Generator<R> for F
+where
+    F: Fn(&mut R) -> G,
+{
     type G = G;
 
     fn generate(&self, rng: &mut R) -> G {
@@ -59,7 +55,7 @@ impl<F,G,R> Generator<R> for F where F: Fn(&mut R) -> G {
     }
 }
 
-trait Mutator<G,R> {
+trait Mutator<G, R> {
     /// Mutate the `genome` returning the number of mutations that occurred.
     fn mutate(&self, genome: &mut G, rng: &mut R) -> u32;
 
@@ -70,7 +66,10 @@ trait Mutator<G,R> {
     //     }
     // }
 
-    fn repeat(self, repeat_count: usize) -> impl Mutator<G, R> where Self: Sized {
+    fn repeat(self, repeat_count: usize) -> impl Mutator<G, R>
+    where
+        Self: Sized,
+    {
         move |genome: &mut G, rng: &mut R| {
             let mut count = 0u32;
             for _ in 0..repeat_count {
@@ -80,7 +79,10 @@ trait Mutator<G,R> {
         }
     }
 
-    fn for_vec(self) -> impl Mutator<Vec<G>,R> where Self: Sized {
+    fn for_vec(self) -> impl Mutator<Vec<G>, R>
+    where
+        Self: Sized,
+    {
         move |genomes: &mut Vec<G>, rng: &mut R| {
             let mut count = 0u32;
             for genome in genomes {
@@ -95,9 +97,10 @@ trait Mutator<G,R> {
 
 // impl<T> Mutator<G,R> for SliceMutator<
 
-impl<F,G,R> Mutator<G,R> for F
+impl<F, G, R> Mutator<G, R> for F
 where
-    F: Fn(&mut G, &mut R) -> u32 {
+    F: Fn(&mut G, &mut R) -> u32,
+{
     // type G = G;
     fn mutate(&self, value: &mut G, rng: &mut R) -> u32 {
         self(value, rng)
@@ -106,51 +109,50 @@ where
 
 pub fn uniform_generator<T, R>(min: T, max: T) -> impl Generator<R, G = T>
 where
-T: SampleUniform + PartialOrd + Copy,
-R: Rng {
-    move |rng: &mut R| {
-        rng.gen_range(min..max)
-    }
+    T: SampleUniform + PartialOrd + Copy,
+    R: Rng,
+{
+    move |rng: &mut R| rng.gen_range(min..max)
 }
 
 pub fn normal_generator<T, R>(mean: T, stddev: T) -> Option<impl Generator<R, G = T>>
 where
-T: PartialOrd + Copy + rand_distr::num_traits::Float,
-StandardNormal: Distribution<T>,
-R: Rng {
-    Normal::new(mean, stddev).map(|n|
-    move |rng: &mut R| {
-        n.sample(rng)
-    }).ok()
+    T: PartialOrd + Copy + rand_distr::num_traits::Float,
+    StandardNormal: Distribution<T>,
+    R: Rng,
+{
+    Normal::new(mean, stddev)
+        .map(|n| move |rng: &mut R| n.sample(rng))
+        .ok()
 }
 
-pub fn uniform_mutator<T, R>(min: T, max: T) -> impl Mutator<T,R>
+pub fn uniform_mutator<T, R>(min: T, max: T) -> impl Mutator<T, R>
 where
-T: SampleUniform + PartialOrd + Copy + AddAssign<T>,
-R: Rng {
+    T: SampleUniform + PartialOrd + Copy + AddAssign<T>,
+    R: Rng,
+{
     move |value: &mut T, rng: &mut R| {
         *value += rng.gen_range(min..max);
         1
     }
 }
 
-pub fn normal_mutator<T, R>(mean: T, stddev: T) -> Option<impl Mutator<T,R>>
+pub fn normal_mutator<T, R>(mean: T, stddev: T) -> Option<impl Mutator<T, R>>
 where
-T: PartialOrd + Copy + rand_distr::num_traits::Float + AddAssign<T>,
-StandardNormal: Distribution<T>,
-R: Rng {
+    T: PartialOrd + Copy + rand_distr::num_traits::Float + AddAssign<T>,
+    StandardNormal: Distribution<T>,
+    R: Rng,
+{
     normal_generator(mean, stddev)
-        .map(|generator|
-             generator.into_mutator(|generated, mutated|
-                                    *mutated += generated))
+        .map(|generator| generator.into_mutator(|generated, mutated| *mutated += generated))
 }
 
 pub fn rnd_prob<R>(rng: &mut R) -> f64
-where R: Rng
+where
+    R: Rng,
 {
     rng.sample(rand::distributions::Open01)
 }
-
 
 #[cfg(test)]
 mod test {

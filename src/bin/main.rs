@@ -1,14 +1,10 @@
 use avian3d::{math::*, prelude::*};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use avian_pickup::prelude::*;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
-use bevy::{
-    prelude::*,
-    app::RunFixedMainLoop,
-    time::run_fixed_main_schedule,
-};
+use bevy::{app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule};
 
-use creatura::{*, graph::*, brain::*};
+use creatura::{brain::*, graph::*, *};
 use petgraph::prelude::*;
 
 fn main() {
@@ -30,11 +26,10 @@ fn main() {
     .add_systems(Startup, construct_creature)
     .add_plugins(PanOrbitCameraPlugin)
     //
-        .add_systems(
-            RunFixedMainLoop,
-            (handle_pickup_input).before(run_fixed_main_schedule),
-        )
-    ;
+    .add_systems(
+        RunFixedMainLoop,
+        (handle_pickup_input).before(run_fixed_main_schedule),
+    );
     // Run the app
     app.run();
 }
@@ -71,33 +66,47 @@ fn construct_creature(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    ) {
+) {
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
     let (genotype, root) = snake_graph(3);
     let mut muscles = vec![];
-    for _entity in construct_phenotype(&genotype,
-                                      root,
-                                      BuildState::default(),
-                                      Vector3::Y,
-                                      Vector3::X,
-                                      Vector3::Y,
-                                      &mut commands,
-                                      move |part, commands| Some(cube_body(part,
-                                                                      pink,
-                                                                      density,
-                                                                      &mut meshes,
-                                                                      &mut materials,
-                                                                      commands)),
-                                      |joint: &JointConfig, commands| Some(spherical_joint(joint, commands)),
-                                      |a, b, commands| Some({let id = build_muscle(a, b, commands);
-                                                             muscles.push(id);
-                                                             id })).expect("creature") {
-
-    }
+    for _entity in construct_phenotype(
+        &genotype,
+        root,
+        BuildState::default(),
+        Vector3::Y,
+        Vector3::X,
+        Vector3::Y,
+        &mut commands,
+        move |part, commands| {
+            Some(cube_body(
+                part,
+                pink,
+                density,
+                &mut meshes,
+                &mut materials,
+                commands,
+            ))
+        },
+        |joint: &JointConfig, commands| Some(spherical_joint(joint, commands)),
+        |a, b, commands| {
+            Some({
+                let id = build_muscle(a, b, commands);
+                muscles.push(id);
+                id
+            })
+        },
+    )
+    .expect("creature")
+    {}
 
     let mut g = DiGraph::new();
-    let a = g.add_node(Neuron::Sin { amp: 1.0, freq: 1.0, phase: 0.0 });
+    let a = g.add_node(Neuron::Sin {
+        amp: 1.0,
+        freq: 1.0,
+        phase: 0.0,
+    });
     // let a = g.add_node(Neuron::Const(1.0));
     let b = g.add_node(Neuron::Muscle);
     g.add_edge(a, b, ());
@@ -109,9 +118,8 @@ fn construct_creature(
             sensors: vec![],
         },
         // KeyboardBrain,
-        brain
+        brain,
     ));
-
 }
 
 fn setup_env(
@@ -153,7 +161,7 @@ fn setup_env(
             ..default()
         },
         PanOrbitCamera::default(),
-// Add this to set up the camera as the entity that can pick up
+        // Add this to set up the camera as the entity that can pick up
         // objects.
         AvianPickupActor {
             // Increase the maximum distance a bit to show off the
@@ -166,16 +174,18 @@ fn setup_env(
 }
 
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
-    let rest_length = (parent.part.from_local(parent.anchor_local) - child.part.from_local(child.anchor_local)).length();
+    let rest_length = (parent.part.from_local(parent.anchor_local)
+        - child.part.from_local(child.anchor_local))
+    .length();
     commands
         .spawn(
             DistanceJoint::new(parent.id, child.id)
                 .with_local_anchor_1(parent.anchor_local)
                 .with_local_anchor_2(child.anchor_local)
                 .with_rest_length(dbg!(rest_length))
-            // .with_limits(rest_length, rest_length)
-            // .with_linear_velocity_damping(0.1)
-            // .with_angular_velocity_damping(1.0)
+                // .with_limits(rest_length, rest_length)
+                // .with_linear_velocity_damping(0.1)
+                // .with_angular_velocity_damping(1.0)
                 .with_compliance(1.0 / 100.0),
         )
         .insert(Muscle::default())

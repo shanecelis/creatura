@@ -1,3 +1,4 @@
+use crate::{Muscle, NervousSystem};
 use bevy::prelude::*;
 use rand::{
     Rng,
@@ -10,25 +11,18 @@ use genevo::{
     mutation::value::RandomValueMutation,
 };
 use petgraph::{
-    prelude::*,
+    algo::{tarjan_scc, toposort, Cycle, DfsSpace},
     graph::DefaultIx,
+    prelude::*,
     visit::{
-        GraphBase,
-        IntoNodeReferences,
-        IntoNeighborsDirected,
-        IntoNodeIdentifiers,
-        Visitable,
-        NodeIndexable,
-        IntoNeighbors,
-        IntoEdgesDirected
+        GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers,
+        IntoNodeReferences, NodeIndexable, Visitable,
     },
-    algo::{
-        toposort,
-        tarjan_scc,
-        DfsSpace,
-        Cycle,
-    }};
-use crate::{NervousSystem, Muscle};
+};
+use rand::{
+    distributions::uniform::{SampleRange, SampleUniform},
+    Rng,
+};
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
 
@@ -36,7 +30,11 @@ use std::f32::consts::TAU;
 pub enum Neuron {
     Sensor,
     Muscle,
-    Sin { amp: f32, freq: f32, phase: f32 },
+    Sin {
+        amp: f32,
+        freq: f32,
+        phase: f32,
+    },
     Complement,
     Const(f32),
     Scale(f32),
@@ -48,7 +46,9 @@ pub enum Neuron {
     /// Subtracts first input from second.
     Diff,
     /// Outputs difference between current and previous input, scaled to units of change 0.1 sec with evolvable direction flag
-    Deriv { dir: bool },
+    Deriv {
+        dir: bool,
+    },
     /// Outputs 1 if >= .0; otherwise outputs 0.
     Threshold(f32),
     /// If first input is >= .0, output second input; otherwise outputs 0.
@@ -66,7 +66,11 @@ impl From<Vec4> for Neuron {
         match (v.x * variant_count as f32) as usize % 15 {
             0 => Sensor,
             1 => Muscle,
-            2 => Sin { amp: v.y, freq: v.z, phase: v.w },
+            2 => Sin {
+                amp: v.y,
+                freq: v.z,
+                phase: v.w,
+            },
             3 => Complement,
             4 => Const(v.y),
             5 => Scale(v.y),
@@ -79,7 +83,9 @@ impl From<Vec4> for Neuron {
             12 => Switch(v.y),
             13 => Delay((v.w * 5.0) as u8),
             14 => AbsDiff,
-            _ => { todo!(); }
+            _ => {
+                todo!();
+            }
         }
     }
 }
@@ -156,29 +162,17 @@ impl From<Vec4> for NVec4 {
 >>>>>>> 2c41548 (feature: Add mutator trait.)
 
 impl RandomValueMutation for NVec4 {
-
     fn random_mutated<R>(value: Self, min_value: &Self, max_value: &Self, rng: &mut R) -> Self
-        where
-        R: Rng + Sized
+    where
+        R: Rng + Sized,
     {
-        NVec4(Vec4::new(RandomValueMutation::random_mutated(value.x,
-                                                            &min_value.x,
-                                                            &max_value.x,
-                                                            rng),
-                        RandomValueMutation::random_mutated(value.y,
-                                                            &min_value.y,
-                                                            &max_value.y,
-                                                            rng),
-                        RandomValueMutation::random_mutated(value.z,
-                                                            &min_value.z,
-                                                            &max_value.z,
-                                                            rng),
-                        RandomValueMutation::random_mutated(value.w,
-                                                            &min_value.w,
-                                                            &max_value.w,
-                                                            rng)))
+        NVec4(Vec4::new(
+            RandomValueMutation::random_mutated(value.x, &min_value.x, &max_value.x, rng),
+            RandomValueMutation::random_mutated(value.y, &min_value.y, &max_value.y, rng),
+            RandomValueMutation::random_mutated(value.z, &min_value.z, &max_value.z, rng),
+            RandomValueMutation::random_mutated(value.w, &min_value.w, &max_value.w, rng),
+        ))
     }
-
 }
 
 #[derive(Clone, Debug)]
@@ -194,16 +188,16 @@ pub struct Context {
 }
 
 pub fn plugin(app: &mut App) {
-    app
-        .add_systems(Update, bitbrain_update);
+    app.add_systems(Update, bitbrain_update);
 }
 
 pub fn bitbrain_update(
     time: Res<Time>,
     mut nervous_systems: Query<(&NervousSystem, &mut BitBrain)>,
-    mut muscles_query: Query<&mut Muscle>) {
+    mut muscles_query: Query<&mut Muscle>,
+) {
     let ctx = Context {
-        time: time.elapsed_seconds()
+        time: time.elapsed_seconds(),
     };
     for (nervous_system, mut brain) in &mut nervous_systems {
         let sensors = &nervous_system.sensors;
@@ -234,13 +228,28 @@ impl Neuron {
             Scale(s) => s * inputs.into_iter().sum::<f32>(),
             Sum => inputs.into_iter().sum::<f32>(),
             Mult => inputs.into_iter().product(),
-            Div => inputs.first().map(|f| f / inputs.into_iter().skip(1).sum::<f32>()).unwrap_or(0.0),
-            Diff => inputs.first().map(|f| f - inputs.into_iter().skip(1).sum::<f32>()).unwrap_or(0.0),
+            Div => inputs
+                .first()
+                .map(|f| f / inputs.into_iter().skip(1).sum::<f32>())
+                .unwrap_or(0.0),
+            Diff => inputs
+                .first()
+                .map(|f| f - inputs.into_iter().skip(1).sum::<f32>())
+                .unwrap_or(0.0),
             Deriv { dir } => todo!("Deriv"),
-            Threshold(t) => inputs.first().and_then(|f| (*f >= *t).then_some(1.0)).unwrap_or(0.0),
-            Switch(t) => inputs.first().and_then(|f| (*f >= 0.0).then_some(inputs.into_iter().skip(1).sum::<f32>())).unwrap_or(0.0),
+            Threshold(t) => inputs
+                .first()
+                .and_then(|f| (*f >= *t).then_some(1.0))
+                .unwrap_or(0.0),
+            Switch(t) => inputs
+                .first()
+                .and_then(|f| (*f >= 0.0).then_some(inputs.into_iter().skip(1).sum::<f32>()))
+                .unwrap_or(0.0),
             Delay(count) => todo!("Delay"),
-            AbsDiff => inputs.first().map(|f| (f - inputs.into_iter().skip(1).sum::<f32>()).abs()).unwrap_or(0.0),
+            AbsDiff => inputs
+                .first()
+                .map(|f| (f - inputs.into_iter().skip(1).sum::<f32>()).abs())
+                .unwrap_or(0.0),
         }
     }
 }
@@ -294,7 +303,6 @@ pub struct BitBrain {
 }
 
 impl BitBrain {
-
     pub fn new(graph: &DiGraph<Neuron, ()>) -> Option<BitBrain> {
         // let count: u8 = graph.node_references().map(|(_i, n)| n.storage()).sum();
         let count: usize = graph.node_count();
@@ -321,7 +329,10 @@ impl BitBrain {
                         break;
                     }
                     Err(cycle) => {
-                        let edges: Vec<_> = g.edges_connecting(cycle.node_id(), cycle.neighbor_id()).map(|e| e.id()).collect();
+                        let edges: Vec<_> = g
+                            .edges_connecting(cycle.node_id(), cycle.neighbor_id())
+                            .map(|e| e.id())
+                            .collect();
                         if edges.is_empty() {
                             break;
                         }
@@ -348,7 +359,12 @@ impl BitBrain {
             // code.push(i as u8);
             code.push(graph.edges_directed(*node_index, Incoming).count() as u8);
             for edge in graph.edges_directed(*node_index, Incoming) {
-                code.push(update.iter().position(|n| *n == edge.source()).expect("neuron position") as u8);
+                code.push(
+                    update
+                        .iter()
+                        .position(|n| *n == edge.source())
+                        .expect("neuron position") as u8,
+                );
             }
         }
 
@@ -362,7 +378,8 @@ impl BitBrain {
     }
 
     pub fn read_muscle(&self, index: usize) -> Option<&f32> {
-        self.read().get(self.storage_a.len().saturating_sub(index + 1))
+        self.read()
+            .get(self.storage_a.len().saturating_sub(index + 1))
     }
 
     /// Return the read storage.
@@ -406,13 +423,15 @@ impl BitBrain {
     }
 }
 
-fn try_repeat<F, R, I, O, E>(attempts: usize,
-                             mut attempt: F,
-                             mut input: &mut I,
-                             mut remedy: R)
-                             -> Result<(O, usize), E>
-where F: FnMut(&I) -> Result<O, E>,
-      R: FnMut(&mut I, E) -> Result<(), E>
+fn try_repeat<F, R, I, O, E>(
+    attempts: usize,
+    mut attempt: F,
+    mut input: &mut I,
+    mut remedy: R,
+) -> Result<(O, usize), E>
+where
+    F: FnMut(&I) -> Result<O, E>,
+    R: FnMut(&mut I, E) -> Result<(), E>,
 {
     for i in 0..attempts {
         match attempt(&input) {
@@ -514,7 +533,6 @@ impl Brain {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -552,27 +570,39 @@ mod test {
         let indices: Vec<usize> = brain.update.iter().map(|i| i.index()).collect();
         assert_eq!(indices, vec![0, 1, 2, 3, 6, 5, 4, 9, 8, 7]);
         let nodes: Vec<Neuron> = brain.update.iter().map(|i| brain.graph[*i].0).collect();
-        assert_eq!(nodes, vec![Sensor, Sensor, Sensor, Sin { amp: 1.0, freq: 1.97, phase: 0.83 },
-                               Complement, Mult, Mult, Muscle, Muscle, Muscle]);
+        assert_eq!(
+            nodes,
+            vec![
+                Sensor,
+                Sensor,
+                Sensor,
+                Sin {
+                    amp: 1.0,
+                    freq: 1.97,
+                    phase: 0.83
+                },
+                Complement,
+                Mult,
+                Mult,
+                Muscle,
+                Muscle,
+                Muscle
+            ]
+        );
     }
 
     #[test]
     fn neuron_eval() {
-        let ctx = Context {
-            time: 0.0,
-        };
+        let ctx = Context { time: 0.0 };
         let inputs = [2.0, 1.0];
         assert_eq!(Sensor.eval(&ctx, 1.0, &inputs), 1.0);
         assert_eq!(Sum.eval(&ctx, 1.0, &inputs), 3.0);
         assert_eq!(Diff.eval(&ctx, 1.0, &inputs), 1.0);
-
     }
 
     #[test]
     fn bitbrain_eval() {
-        let ctx = Context {
-            time: 0.0,
-        };
+        let ctx = Context { time: 0.0 };
         let mut g = Graph::<Neuron, ()>::new();
         let a = g.add_node(Const(1.0));
         let mut brain = BitBrain::new(&g).unwrap();
@@ -584,9 +614,7 @@ mod test {
 
     #[test]
     fn bitbrain_eval_cycle() {
-        let ctx = Context {
-            time: 0.0,
-        };
+        let ctx = Context { time: 0.0 };
         let mut g = Graph::<Neuron, ()>::new();
         let a = g.add_node(Const(1.0));
         let _e = g.add_edge(a, a, ());
@@ -599,9 +627,7 @@ mod test {
 
     #[test]
     fn bitbrain_eval_scc() {
-        let ctx = Context {
-            time: 0.0,
-        };
+        let ctx = Context { time: 0.0 };
         let mut g = Graph::<Neuron, ()>::new();
         let a = g.add_node(Const(1.0));
         let b = g.add_node(Sum);
@@ -609,7 +635,7 @@ mod test {
         let _ = g.add_edge(b, a, ());
         let _ = g.add_edge(b, b, ());
         let mut brain = BitBrain::new(&g).unwrap();
-        assert_eq!(brain.code, [1,1,2,1,0]);
+        assert_eq!(brain.code, [1, 1, 2, 1, 0]);
         assert_eq!(brain.storage_a, [0.0, 0.0]);
         assert_eq!(brain.storage_b, [0.0, 0.0]);
         assert_eq!(brain.storage_a.len(), 2);

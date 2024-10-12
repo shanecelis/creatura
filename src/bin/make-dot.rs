@@ -25,7 +25,7 @@ impl fmt::Display for Edge {
 }
 
 #[allow(dead_code)]
-fn reify_tree() -> Graph::<&'static str, Edge> {
+fn reify_tree() -> Graph<&'static str, Edge> {
     let mut g = Graph::<_, Edge>::new();
     let a = g.add_node("a");
     let _e0 = g.add_edge(a, a, (0, 2).into());

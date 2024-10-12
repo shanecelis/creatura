@@ -1,7 +1,7 @@
-use petgraph::{prelude::*, graph::DefaultIx};
-use core::f32::consts::FRAC_PI_4;
-use crate::rdfs::*;
 use super::*;
+use crate::rdfs::*;
+use core::f32::consts::FRAC_PI_4;
+use petgraph::{graph::DefaultIx, prelude::*};
 
 pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<DefaultIx>) {
     let part = Part {
@@ -11,27 +11,27 @@ pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<Defaul
     };
     let mut graph = DiGraph::new();
     let index = graph.add_node(part);
-    graph.add_edge(index, index,
+    graph.add_edge(
+        index,
+        index,
         PartEdge {
             joint_rotation: Quaternion::IDENTITY,
             rotation: Quaternion::IDENTITY,
             scale: 0.6 * Vector3::ONE,
             iteration_count: part_count,
             op: None,
-            muscles: vec![
-                MuscleGene {
+            muscles: vec![MuscleGene {
                 parent: Quaternion::from_axis_angle(Vec3::Z, FRAC_PI_4),
                 child: Quaternion::IDENTITY,
                 max_strength: 1.0,
-            }
-            ],
-        });
+            }],
+        },
+    );
     (graph, index)
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum ConstructError {
-}
+pub enum ConstructError {}
 
 #[derive(Clone, Copy, Debug)]
 pub struct BuildState {
@@ -52,28 +52,30 @@ impl Default for BuildState {
 pub struct MuscleSite<'a> {
     pub id: Entity,
     pub anchor_local: Vector3,
-    pub part: &'a Part
+    pub part: &'a Part,
 }
 
-
 #[allow(clippy::too_many_arguments)]
-pub fn construct_phenotype<F, G, H>(graph: &DiGraph<Part,PartEdge>,
-                                 root: NodeIndex<DefaultIx>,
-                                 state: BuildState,
-                                 position: Vector3,
-                                 principle_axis: Vector3,
-                                 secondary_axis: Vector3,
-                                 commands: &mut Commands,
-                                 mut make_part: F,
-                                 mut make_joint: G,
-                                 mut make_muscle: H,
+pub fn construct_phenotype<F, G, H>(
+    graph: &DiGraph<Part, PartEdge>,
+    root: NodeIndex<DefaultIx>,
+    state: BuildState,
+    position: Vector3,
+    principle_axis: Vector3,
+    secondary_axis: Vector3,
+    commands: &mut Commands,
+    mut make_part: F,
+    mut make_joint: G,
+    mut make_muscle: H,
 ) -> Result<Vec<Entity>, ConstructError>
-where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
-      G: FnMut(&JointConfig, &mut Commands) -> Option<Entity>,
-      H: FnMut(&MuscleSite, &MuscleSite, &mut Commands) -> Option<Entity>,
-
+where
+    F: FnMut(&Part, &mut Commands) -> Option<Entity>,
+    G: FnMut(&JointConfig, &mut Commands) -> Option<Entity>,
+    H: FnMut(&MuscleSite, &MuscleSite, &mut Commands) -> Option<Entity>,
 {
-    let mut rdfs = Rdfs::new(graph, root, |g, _n, e| Permit::EdgeCount(g[e].iteration_count));
+    let mut rdfs = Rdfs::new(graph, root, |g, _n, e| {
+        Permit::EdgeCount(g[e].iteration_count)
+    });
     let mut states = vec![];
     let mut parts: Vec<(Part, Entity)> = vec![];
     let mut entities = vec![];
@@ -92,20 +94,26 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
         let mut child: Part = graph[node];
         let child_id = if let Some((parent, parent_id)) = parts.last() {
             // Child object, has a parent.
-            let joint_rotation = joint_rotation.map(|q| q * state.rotation).unwrap_or(state.rotation);
+            let joint_rotation = joint_rotation
+                .map(|q| q * state.rotation)
+                .unwrap_or(state.rotation);
             let joint_dir = joint_rotation * principle_axis;
             child.position = parent.position + 10.0 * joint_dir;
             child.extents = state.scale * graph[node].extents;
             // Position child
             if let Some((p1, p2)) = child.stamp(parent) {
                 let child_id = make_part(&child, commands).unwrap();
-                if let Some(e) = make_joint(&JointConfig { parent: *parent_id,
-                                            parent_anchor: p1,
-                                            child: child_id,
-                                            child_anchor: p2,
-                                            normal: joint_dir,
-                                            tangent: joint_rotation * secondary_axis
-                }, commands) {
+                if let Some(e) = make_joint(
+                    &JointConfig {
+                        parent: *parent_id,
+                        parent_anchor: p1,
+                        child: child_id,
+                        child_anchor: p2,
+                        normal: joint_dir,
+                        tangent: joint_rotation * secondary_axis,
+                    },
+                    commands,
+                ) {
                     entities.push(e);
                 }
                 // Make muscles
@@ -113,22 +121,26 @@ where F: FnMut(&Part, &mut Commands) -> Option<Entity>,
                     for muscle in &graph[*edge].muscles {
                         let r = joint_rotation * muscle.parent;
                         let parent_anchor_dir: Dir3 = Dir3::new(r * principle_axis).expect("dir3");
-                        let child_anchor_dir: Dir3 = Dir3::new(r * muscle.child * principle_axis).expect("dir3");
+                        let child_anchor_dir: Dir3 =
+                            Dir3::new(r * muscle.child * principle_axis).expect("dir3");
                         dbg!(parent);
                         dbg!(parent_anchor_dir);
                         dbg!(child);
                         dbg!(child_anchor_dir);
-                        if let Some((a1, a2)) = parent.cast_to(parent_anchor_dir).zip(child.cast_to(child_anchor_dir)) {
+                        if let Some((a1, a2)) = parent
+                            .cast_to(parent_anchor_dir)
+                            .zip(child.cast_to(child_anchor_dir))
+                        {
                             let parent_site = MuscleSite {
                                 id: *parent_id,
                                 anchor_local: a1,
-                                part: parent
+                                part: parent,
                             };
 
                             let child_site = MuscleSite {
                                 id: child_id,
                                 anchor_local: a2,
-                                part: &child
+                                part: &child,
                             };
                             dbg!(&parent_site);
                             dbg!(&child_site);
@@ -172,27 +184,32 @@ pub struct JointConfig {
     pub tangent: Vector3,
 }
 
-pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity{
-    commands.spawn({
-        let mut j = SphericalJoint::new(joint.parent, joint.child)
-        // .with_swing_axis(Vector::Y)
-        // .with_twist_axis(Vector::X)
-            .with_local_anchor_1(joint.parent_anchor)
-            .with_local_anchor_2(joint.child_anchor)
-        // .with_aligned_axis(Vector::Z)
-            .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
-            .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
-        j.swing_axis = joint.tangent; //Vector::Y;
-        j.twist_axis = joint.normal; //Vector::X;
-        j}).id()
+pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
+    commands
+        .spawn({
+            let mut j = SphericalJoint::new(joint.parent, joint.child)
+                // .with_swing_axis(Vector::Y)
+                // .with_twist_axis(Vector::X)
+                .with_local_anchor_1(joint.parent_anchor)
+                .with_local_anchor_2(joint.child_anchor)
+                // .with_aligned_axis(Vector::Z)
+                .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
+                .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
+            j.swing_axis = joint.tangent; //Vector::Y;
+            j.twist_axis = joint.normal; //Vector::X;
+            j
+        })
+        .id()
 }
 
-pub fn cube_body(child: &Part,
-                 color: Color,
-                 density: f32,
-                 meshes: &mut Assets<Mesh>,
-                 materials: &mut Assets<StandardMaterial>,
-                 commands: &mut Commands) -> Entity {
+pub fn cube_body(
+    child: &Part,
+    color: Color,
+    density: f32,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+) -> Entity {
     commands
         .spawn((
             PbrBundle {
@@ -223,7 +240,7 @@ mod test {
         let parent = Part {
             extents: Vec3::ONE,
             position: Vec3::Y,
-            rotation: Quat::IDENTITY
+            rotation: Quat::IDENTITY,
         };
 
         let anchor_dir = Dir3::Y;
@@ -233,10 +250,9 @@ mod test {
 
     #[test]
     fn quat_div() {
-        let a = Quat::from_axis_angle(Vec3::X, PI );
+        let a = Quat::from_axis_angle(Vec3::X, PI);
         let b = Quat::from_axis_angle(Vec3::X, PI / 2.0);
         let c = a * b.inverse();
         assert!(c.angle_between(b) < 0.01);
     }
-
 }

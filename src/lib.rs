@@ -3,15 +3,15 @@
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
-mod repeat_visit_map;
 pub mod brain;
 pub mod operator;
+mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
 mod dsp;
 
-pub mod rdfs;
 pub mod graph;
+pub mod rdfs;
 //
 #[derive(Component)]
 pub struct MuscleRange {
@@ -47,10 +47,8 @@ pub struct Muscle {
 pub struct CreaturaPlugin;
 
 impl Plugin for CreaturaPlugin {
-
     fn build(&self, app: &mut App) {
-        app
-            .add_plugins(brain::plugin)
+        app.add_plugins(brain::plugin)
             .add_systems(Update, keyboard_brain)
             .add_systems(Update, oscillate_muscles)
             .add_systems(Update, oscillate_brain)
@@ -59,7 +57,15 @@ impl Plugin for CreaturaPlugin {
 }
 
 pub fn sync_muscles(
-    mut joints: Query<(&mut DistanceJoint, &Muscle, Option<&MuscleRange>, Option<&mut Sensor>), Changed<Muscle>>,
+    mut joints: Query<
+        (
+            &mut DistanceJoint,
+            &Muscle,
+            Option<&MuscleRange>,
+            Option<&mut Sensor>,
+        ),
+        Changed<Muscle>,
+    >,
 ) {
     for (mut joint, muscle, range, sensor) in &mut joints {
         if let Some(mut sensor) = sensor {
@@ -226,8 +232,6 @@ pub struct PartEdge {
     pub muscles: Vec<MuscleGene>,
 }
 
-
-
 impl Default for Part {
     fn default() -> Self {
         Self {
@@ -253,7 +257,6 @@ impl Part {
         let v = self.extents;
         v.x * v.y * v.z
     }
-
 }
 
 // pub struct StampResult {
@@ -325,7 +328,14 @@ impl Stampable for Part {
         self.collider()
             // .cast_ray(self.position(), self.rotation, self.position(), dir.as_vec3(), 100., false)
             // .map(|(toi, _normal)| dir * toi + self.position())
-            .cast_ray(Vec3::ZERO, Quaternion::IDENTITY, Vec3::ZERO, (self.rotation.inverse() * dir).as_vec3(), 100., false)
+            .cast_ray(
+                Vec3::ZERO,
+                Quaternion::IDENTITY,
+                Vec3::ZERO,
+                (self.rotation.inverse() * dir).as_vec3(),
+                100.,
+                false,
+            )
             .map(|(toi, _normal)| dir * toi)
     }
 }

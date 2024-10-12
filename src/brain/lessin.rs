@@ -1,5 +1,5 @@
 use super::*;
-use petgraph::{prelude::*, graph::DefaultIx, visit::IntoNodeReferences, algo::toposort};
+use petgraph::{algo::toposort, graph::DefaultIx, prelude::*, visit::IntoNodeReferences};
 
 /// Lessin, D. Evolved Virtual Creatures as Content: Increasing Behavioral and
 /// Morphological Complexity. (2015).
@@ -9,7 +9,11 @@ pub fn figure4_3() -> DiGraph<Neuron, ()> {
     g.add_node(Sensor);
     let s2 = g.add_node(Sensor);
     g.add_node(Sensor);
-    let n1 = g.add_node(Sin { amp: 1.0, freq: 1.97, phase: 0.83 });
+    let n1 = g.add_node(Sin {
+        amp: 1.0,
+        freq: 1.97,
+        phase: 0.83,
+    });
     let n2 = g.add_node(Mult);
     let n3 = g.add_node(Mult);
     let n4 = g.add_node(Complement);

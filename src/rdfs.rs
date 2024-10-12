@@ -135,11 +135,16 @@ where
 
                         Permit::NodeCount(allowance) => {
                             let target = succ_ref.target();
-                            let mut source_count =
-                                self.path
-                                    .iter()
-                                    .filter(|e| graph.edge_endpoints(**e).map(|(_, t)| t == target).unwrap_or(false))
-                                    .count() as u8;
+                            let mut source_count = self
+                                .path
+                                .iter()
+                                .filter(|e| {
+                                    graph
+                                        .edge_endpoints(**e)
+                                        .map(|(_, t)| t == target)
+                                        .unwrap_or(false)
+                                })
+                                .count() as u8;
                             // check last target
                             if self
                                 .path
@@ -288,7 +293,13 @@ mod test {
         let mut g = Graph::<isize, ()>::new();
         let a = g.add_node(0);
         let _ = g.add_edge(a, a, ());
-        let g2 = reify(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
+        let g2 = reify(
+            &g,
+            a,
+            |_, _, _| Permit::EdgeCount(2),
+            |g, n| g[n],
+            |g, e| g[e],
+        );
         assert_eq!(g2.node_count(), 3);
         assert_eq!(g2.edge_count(), 2);
     }
@@ -444,7 +455,13 @@ mod test {
         let a = g.add_node(0);
         let _e0 = g.add_edge(a, a, 0);
         let _e1 = g.add_edge(a, a, 1);
-        let tree = reify(&g, a, |_, _, _| Permit::EdgeCount(2), |g, n| g[n], |g, e| g[e]);
+        let tree = reify(
+            &g,
+            a,
+            |_, _, _| Permit::EdgeCount(2),
+            |g, n| g[n],
+            |g, e| g[e],
+        );
         eprintln!("{:?}", Dot::with_config(&tree, &[Config::EdgeNoLabel]));
     }
 
