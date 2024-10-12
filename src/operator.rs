@@ -1,6 +1,5 @@
 use crate::{Muscle, NervousSystem};
 use bevy::prelude::*;
-use genevo::{mutation::value::RandomValueMutation, operator::MutationOp};
 use rand::{
     distributions::uniform::{SampleRange, SampleUniform},
     Rng,

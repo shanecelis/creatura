@@ -1,14 +1,8 @@
-use crate::{Muscle, NervousSystem};
+use crate::{Muscle, NervousSystem, operator::*};
 use bevy::prelude::*;
 use rand::{
     Rng,
     distributions::uniform::{SampleUniform, SampleRange},
-};
-use genevo::{
-    genetic::Genotype,
-    operator::{GeneticOperator,
-               MutationOp},
-    mutation::value::RandomValueMutation,
 };
 use petgraph::{
     algo::{tarjan_scc, toposort, Cycle, DfsSpace},
@@ -22,6 +16,7 @@ use petgraph::{
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
 
+const NEURON_VARIANT_COUNT: usize = 15;
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Neuron {
     Sensor,
@@ -58,8 +53,7 @@ pub enum Neuron {
 impl From<Vec4> for Neuron {
     fn from(v: Vec4) -> Neuron {
         use Neuron::*;
-        let variant_count = 15;
-        match (v.x * variant_count as f32) as usize % 15 {
+        match (v.x * NEURON_VARIANT_COUNT as f32) as usize % NEURON_VARIANT_COUNT {
             0 => Sensor,
             1 => Muscle,
             2 => Sin {
@@ -110,35 +104,28 @@ impl From<Neuron> for Vec4 {
                 v.y = s;
             },
             Mult => v.x = 6.0,
-            /// Divide first input by second
             Div => v.x = 7.0,
-            /// Sums inputs
             Sum => v.x = 8.0,
-            /// Subtracts first input from second.
             Diff => v.x = 9.0,
-            /// Outputs difference between current and previous input, scaled to units of change 0.1 sec with evolvable direction flag
             Deriv { dir } => {
                 v.x = 10.0;
                 v.y = if dir { 1.0 } else { 0.0 };
             },
-            /// Outputs 1 if >= .0; otherwise outputs 0.
             Threshold(t) => {
                 v.x = 11.0;
                 v.y = t;
             },
-            /// If first input is >= .0, output second input; otherwise outputs 0.
             Switch(t) => {
                 v.x = 12.0;
                 v.y = t;
             },
-            /// Applies an evolvable delay to input signal.
             Delay(d) => {
                 v.x = 13.0;
                 v.w = d as f32 / 5.0;
             },
-            /// Outputs the absolute difference of input units.
             AbsDiff => v.x = 14.0,
         }
+        v.x /= NEURON_VARIANT_COUNT as f32;
         v
     }
 }
@@ -152,22 +139,45 @@ impl From<Vec4> for NVec4 {
     }
 }
 
-impl RandomValueMutation for NVec4 {
-    fn random_mutated<R>(value: Self, min_value: &Self, max_value: &Self, rng: &mut R) -> Self
-    where
-        R: Rng + Sized,
+impl NVec4 {
+    fn generate<R>(rnd: &mut R) -> Self
+    where R: Rng
     {
-        NVec4(Vec4::new(
-            RandomValueMutation::random_mutated(value.x, &min_value.x, &max_value.x, rng),
-            RandomValueMutation::random_mutated(value.y, &min_value.y, &max_value.y, rng),
-            RandomValueMutation::random_mutated(value.z, &min_value.z, &max_value.z, rng),
-            RandomValueMutation::random_mutated(value.w, &min_value.w, &max_value.w, rng),
-        ))
+        let g = uniform_generator(0.0, 1.0);
+        NVec4(Vec4::new(g.generate(rnd),
+                        g.generate(rnd),
+                        g.generate(rnd),
+                        g.generate(rnd)))
+    }
+
+    fn mutate_all<R>(gene: &mut Self, rnd: &mut R) -> u32
+    where R: Rng
+    {
+        let m = uniform_mutator(0.0, 0.1);
+        m.mutate(&mut gene.0.x, rnd);
+        m.mutate(&mut gene.0.y, rnd);
+        m.mutate(&mut gene.0.z, rnd);
+        m.mutate(&mut gene.0.w, rnd);
+        4
+    }
+
+    fn mutate_one<R>(gene: &mut Self, rnd: &mut R) -> u32
+    where R: Rng
+    {
+        let m = uniform_mutator(0.0, 0.1);
+        match rnd.gen_range(0..4) {
+            0 => m.mutate(&mut gene.0.x, rnd),
+            1 => m.mutate(&mut gene.0.y, rnd),
+            2 => m.mutate(&mut gene.0.z, rnd),
+            3 => m.mutate(&mut gene.0.w, rnd),
+            _ => unreachable!()
+        };
+        1
     }
 }
 
-#[derive(Clone, Debug)]
-struct BrainGraph(DiGraph<NVec4, ()>);
+// #[derive(Clone, Debug)]
+// struct BrainGraph(DiGraph<NVec4, ()>);
 
 #[derive(Clone, Debug)]
 struct NeuronMutationOp {
@@ -437,54 +447,6 @@ where
     unreachable!();
 }
 
-// pub fn toposort_lossy<N, E, Ty, Ix, F>(
-//     mut graph: &mut Graph<N, E, Ty, Ix>,
-//     mut remove_edge: F
-//     // space: Option<&mut DfsSpace<G::NodeId, G::Map>>
-// // ) -> Result<Vec<NodeIndex<Ix>>, Cycle<EdgeIndex<Ix>>>
-// ) -> Result<Vec<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>,
-//             Cycle<<petgraph::Graph<N, E, Ty, Ix> as GraphBase>::NodeId>>
-// where
-// Ix: petgraph::adj::IndexType,
-//     // F: FnMut(&mut Graph<N, E, Ty, Ix>, EdgeIndex<Ix>),
-//     F: FnMut(&mut Graph<N, E, Ty, Ix>, <&petgraph::Graph<N, E, Ty, Ix> as GraphBase>::EdgeId),
-//     for<'a> &'a Graph<N, E, Ty, Ix>: IntoNeighborsDirected + IntoNodeIdentifiers + Visitable + NodeIndexable + IntoNeighbors + IntoEdgesDirected
-//     {
-//     try_repeat(3,
-//                |g| toposort(&g, None),
-//                graph,
-//                |g, e| {
-//                    let troublemaker = e.node_id();
-//                    for nodes in tarjan_scc(&*g) {
-//                        if nodes.contains(&e.node_id()) {
-//                            // This scc contains our trouble maker.
-//                            for edge in g.edges_directed(troublemaker, Direction::Incoming) {
-//                                if nodes.contains(&edge.source()) {
-//                                    remove_edge(g, edge.id());
-//                                    break;
-//                                }
-//                            }
-
-//                            for edge in g.edges_directed(troublemaker, Direction::Outgoing) {
-//                                if nodes.contains(&edge.target()) {
-//                                    remove_edge(g, edge.id());
-//                                    break;
-//                                }
-//                            }
-//                            // for neighbor in g.neighbors(troublemaker) {
-//                            //     if nodes.contains(&neighbor) {
-//                            //         for edge in (*g).edges_connecting(troublemaker, neighbor) {
-//                            //             g.edge_remove(edge.id());
-//                            //         }
-//                            //     }
-//                            // }
-//                        }
-//                    }
-//                    Ok(())
-//                },
-//     ).map(|r| r.0)
-// }
-
 impl Brain {
     fn new(graph: DiGraph<Neuron, ()>) -> Option<Brain> {
         let count: u8 = graph.node_references().map(|(_i, n)| n.storage()).sum();
@@ -641,5 +603,22 @@ mod test {
         assert_eq!(brain.read()[1], 2.0);
         assert_eq!(brain.storage_a, [1.0, 1.0]);
         assert_eq!(brain.storage_b, [1.0, 2.0]);
+    }
+
+    #[test]
+    fn to_nvec4() {
+        let n = Neuron::Sensor;
+        let v: Vec4 = n.clone().into();
+        let n2: Neuron = v.into();
+        assert_eq!(n, n2);
+    }
+
+    #[test]
+    fn to_nvec4_altered() {
+        let n = Neuron::Sensor;
+        let mut v: Vec4 = n.clone().into();
+        v.x += 0.5;
+        let n2: Neuron = v.into();
+        assert_ne!(n, n2);
     }
 }
