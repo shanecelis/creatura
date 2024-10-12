@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{
+    Rng,
+    distributions::uniform::{SampleUniform, SampleRange},
+};
 use genevo::{
     genetic::Genotype,
     operator::{GeneticOperator,
@@ -185,57 +188,6 @@ struct BrainGraph(DiGraph<NVec4, ()>);
 struct NeuronMutationOp {
     mutation_rate: f64,
 }
-
-trait Mutator<G> {
-    fn mutate(&self, value: &mut G) -> u32;
-
-    fn repeat(self, repeat_count: usize) -> impl Mutator<G> where Self: Sized {
-        move |genome: &mut G| {
-            let mut count = 0u32;
-            for _ in 0..repeat_count {
-                count += self.mutate(genome);
-            }
-            count
-        }
-    }
-
-    fn for_vec(self) -> impl Mutator<Vec<G>> where Self: Sized {
-        move |genomes: &mut Vec<G>| {
-            let mut count = 0u32;
-            for genome in genomes {
-                count += self.mutate(genome);
-            }
-            count
-        }
-    }
-
-}
-
-impl<F,G> Mutator<G> for F where F: Fn(&mut G) -> u32 {
-    fn mutate(&self, value: &mut G) -> u32 {
-        self(value)
-    }
-}
-
-// impl MutationOp<Neuron> for NeuronMutationOp {
-impl RandomValueMutation for Neuron {
-    // fn mutate<R>(&self, mut genome: Neuron, rng: &mut R) -> Neuron
-    //     where
-    //     R: Rng + Sized
-    // {
-    //     if self.mutation_rate < rng.gen::<f64>() {
-
-    //     }
-    // }
-    fn random_mutated<R>(value: Self, min_value: &Self, max_value: &Self, rng: &mut R) -> Self
-        where
-        R: Rng + Sized
-    {
-        todo!()
-
-    }
-}
-
 
 pub struct Context {
     time: f32,
@@ -676,5 +628,4 @@ mod test {
         assert_eq!(brain.storage_a, [1.0, 1.0]);
         assert_eq!(brain.storage_b, [1.0, 2.0]);
     }
-
 }

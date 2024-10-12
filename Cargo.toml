@@ -21,6 +21,7 @@ petgraph = "0.6.5"
 rand = "0.8.5"
 avian_pickup = { git = "https://github.com/janhohenheim/avian_pickup", version = "0.1.0" }
 genevo = "0.7.1"
+rand_distr = "0.4.3"
 # avian_interpolation3d = { git = "https://github.com/janhohenheim/avian_interpolation", version = "0.1.0" }
 
 [[bin]]
