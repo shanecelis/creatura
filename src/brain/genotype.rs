@@ -419,6 +419,17 @@ impl BitBrain {
     }
 }
 
+pub fn nvec4_brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u32
+where R: Rng {
+    let m = NVec4::mutate_one;//.with_prob(0.1);
+
+    let mut count = 0;
+    for idx in graph.node_indices() {
+        count += m.mutate(&mut graph[idx], rng);
+    }
+    count
+}
+
 fn try_repeat<F, R, I, O, E>(
     attempts: usize,
     mut attempt: F,

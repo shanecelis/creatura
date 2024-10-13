@@ -91,6 +91,21 @@ pub trait Mutator<G, R> {
             count
         }
     }
+
+    fn with_prob(self, p: f32) -> impl Mutator<G, R>
+    where
+        Self: Sized,
+        R: Rng,
+    {
+        move |genome: &mut G, rng: &mut R| {
+            if rng.with_prob(p) {
+                self.mutate(genome, rng)
+            } else {
+                0
+            }
+        }
+    }
+
 }
 
 // struct SliceMutator<T>(T);

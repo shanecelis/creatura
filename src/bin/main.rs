@@ -2,18 +2,29 @@ use avian3d::{math::*, prelude::*};
 use avian_pickup::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
-use bevy::{app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule};
+use bevy::{app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution};
 
-use creatura::{brain::*, graph::*, *};
+use creatura::{brain::*, graph::*, *, operator::*};
 use petgraph::prelude::*;
 
 fn main() {
     let mut app = App::new();
 
     let blue = Color::srgb_u8(27, 174, 228);
+
+        app.add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        resolution: WindowResolution::new(400.0, 400.0),
+                        ..default()
+                    }),
+                    ..default()
+                })
+        );
     // Add plugins and startup system
     app.add_plugins((
-        DefaultPlugins,
+        // DefaultPlugins,
         PhysicsDebugPlugin::default(),
         PhysicsPlugins::default(),
         AvianPickupPlugin::default(),
@@ -24,6 +35,7 @@ fn main() {
     .insert_resource(ClearColor(blue))
     .add_systems(Startup, setup_env)
     .add_systems(Startup, construct_creature)
+        .add_systems(Update, mutate_on_space)
     .add_plugins(PanOrbitCameraPlugin)
     //
     .add_systems(
@@ -62,6 +74,9 @@ fn handle_pickup_input(
     }
 }
 
+#[derive(Component)]
+struct RootBody;
+
 fn construct_creature(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -70,6 +85,7 @@ fn construct_creature(
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
     let (genotype, root) = snake_graph(3);
+    let mut is_root = true;
     let mut muscles = vec![];
     for _entity in construct_phenotype(
         &genotype,
@@ -80,14 +96,20 @@ fn construct_creature(
         Vector3::Y,
         &mut commands,
         move |part, commands| {
-            Some(cube_body(
+            let id = cube_body(
                 part,
                 pink,
                 density,
                 &mut meshes,
                 &mut materials,
                 commands,
-            ))
+            );
+            if is_root {
+                commands.entity(id).insert(RootBody);
+                is_root = false;
+                // root_id = Some(id);
+            }
+            Some(id)
         },
         |joint: &JointConfig, commands| Some(spherical_joint(joint, commands)),
         |a, b, commands| {
@@ -111,6 +133,7 @@ fn construct_creature(
     let b = g.add_node(Neuron::Muscle);
     g.add_edge(a, b, ());
     let brain = BitBrain::new(&g).unwrap();
+    let genotype: DiGraph<NVec4, ()> = g.map(|ni, n| (*n).into(), |_, _| ());
 
     commands.spawn((
         NervousSystem {
@@ -119,8 +142,35 @@ fn construct_creature(
         },
         // KeyboardBrain,
         brain,
+        Genotype(genotype),
     ));
 }
+
+fn mutate_on_space(mut query: Query<(&mut BitBrain, &mut Genotype<DiGraph<NVec4, ()>>)>,
+                   input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::Space) {
+
+        let mut rng = rand::thread_rng();
+        let (mut brain, mut genotype) = query.single_mut();
+        let mut g = genotype.0.clone();
+        let count = nvec4_brain_mutator.mutate(&mut g, &mut rng);
+
+        let h: DiGraph<Neuron, ()> = g.map(|ni, n| (*n).into(), |_, _| ());
+        genotype.0 = g;
+
+        if let Some(new_brain) = BitBrain::new(&h) {
+            *brain = new_brain;
+            info!("brain {count} mutated; brain replaced.");
+        } else {
+            warn!("brain {count} mutated; brain NOT replaced.");
+        }
+    }
+}
+
+// fn hill_climber(last_fitness: Local<Option<
+
+#[derive(Component)]
+struct Genotype<T>(T);
 
 fn setup_env(
     mut commands: Commands,
