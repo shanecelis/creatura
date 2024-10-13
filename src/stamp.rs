@@ -41,12 +41,11 @@ impl Part {
     pub fn transform(&self) -> Transform {
         Transform {
             translation: self.position,
-            rotation: self.rotation.into(),
+            rotation: self.rotation,
             scale: Vector::ONE,
         }
     }
 }
-
 
 /// Stamp info.
 pub struct StampInfo {
@@ -73,9 +72,8 @@ pub trait Surface {
 /// `Stamp`). This means that it is moved so that its exterior is just
 /// touching the object it was stamped onto.
 pub trait Stamp: Surface {
-    // Return object position.
-    // fn position(&self) -> Vector3;
-    /// Stamp object onto another, return the local vectors of each where they touch.
+    /// Stamp object onto another, return the local vectors of each where they
+    /// touch.
     fn stamp(&self, onto: &impl Surface, in_dir: Dir3) -> Option<StampInfo>;
 }
 
@@ -102,22 +100,9 @@ impl Stamp for Part {
     fn stamp(&self, onto: &impl Surface, in_dir: Dir3) -> Option<StampInfo> {
         if let Some(p1) = onto.cast_to(-in_dir) {
             if let Some(p2) = self.cast_to(in_dir) {
-                // let intersect1 = onto.from_local(p1);
-                // let intersect2 = self.from_local(p2);
-                // We can put ourself into the right place.
-                // let delta = intersect2 - intersect1;
-
-                let deltap = onto.rotation() * p1 - self.rotation() * p2;
-                // dbg!(delta, deltap);
-
-                // let p1 = onto.to_local(intersect1);
-                // let p2 = self.to_local(intersect2);
-                // self.position -= delta;
-                // let positionp = onto.position() + deltap;
-                // self.position = positionp;
-                // dbg!(self.position, positionp);
+                let delta = onto.rotation() * p1 - self.rotation() * p2;
                 return Some(StampInfo {
-                    stamp_delta: deltap,
+                    stamp_delta: delta,
                     stamp_anchor: p2,
                     surface_anchor: p1
                 });

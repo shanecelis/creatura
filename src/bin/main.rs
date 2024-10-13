@@ -4,7 +4,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 use bevy::{app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution};
 
-use creatura::{brain::*, graph::*, *, operator::*, stamp::*};
+use creatura::{brain::*, graph::*, *, operator::*};
 use petgraph::prelude::*;
 
 fn main() {
@@ -134,7 +134,7 @@ fn construct_creature(
     let b = g.add_node(Neuron::Muscle);
     g.add_edge(a, b, ());
     let brain = BitBrain::new(&g).unwrap();
-    let genotype: DiGraph<NVec4, ()> = g.map(|ni, n| (*n).into(), |_, _| ());
+    let genotype: DiGraph<NVec4, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
 
     commands.spawn((
         NervousSystem {
@@ -156,7 +156,7 @@ fn mutate_on_space(mut query: Query<(&mut BitBrain, &mut Genotype<DiGraph<NVec4,
         let mut g = genotype.0.clone();
         let count = nvec4_brain_mutator.mutate(&mut g, &mut rng);
 
-        let h: DiGraph<Neuron, ()> = g.map(|ni, n| (*n).into(), |_, _| ());
+        let h: DiGraph<Neuron, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
         genotype.0 = g;
 
         if let Some(new_brain) = BitBrain::new(&h) {

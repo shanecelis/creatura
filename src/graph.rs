@@ -185,7 +185,7 @@ impl<'a, G, R> WeightedMutator<'a, G, R> {
 
     fn new<T>(mutators: Vec<&'a dyn Mutator<G, R>>, weights: &[T]) -> Self
     where WalkerTableBuilder: NewBuilder<T> {
-        let builder = WalkerTableBuilder::new(&weights);
+        let builder = WalkerTableBuilder::new(weights);
         assert_eq!(mutators.len(), weights.len(), "Mutators and weights different lengths.");
         Self {
             table: builder.build(),
@@ -497,7 +497,7 @@ mod test {
         let mut a = lessin::fig4_3();
         assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Muscle).count(), 3);
         assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Complement).count(), 1);
-        let sin_idx = a.node_indices().filter(|n| matches!(a[*n], Neuron::Sin { freq, amp, phase })).next().unwrap();
+        let sin_idx = a.node_indices().find(|n| matches!(a[*n], Neuron::Sin { .. })).unwrap();
         prune_subtree(&mut a, sin_idx);
         assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Muscle).count(), 2);
         assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Complement).count(), 0);
@@ -508,7 +508,7 @@ mod test {
         let a = lessin::fig4_3();
         let mut b = Graph::new();
         let s = b.add_node(Neuron::Sensor);
-        let idx = a.node_indices().filter(|n| matches!(a[*n], Neuron::Complement)).next().unwrap();
+        let idx = a.node_indices().find(|n| matches!(a[*n], Neuron::Complement)).unwrap();
         add_subtree(&a, idx, &mut b, s);
         assert_eq!(b.node_count(), 2);
         assert_eq!(b.edge_count(), 1);
@@ -522,7 +522,7 @@ mod test {
         let s = b.add_node(Neuron::Sensor);
         let t = b.add_node(Neuron::Mult);
         let _ = b.add_edge(s, t, ());
-        let idx = a.node_indices().filter(|n| matches!(a[*n], Neuron::Complement)).next().unwrap();
+        let idx = a.node_indices().find(|n| matches!(a[*n], Neuron::Complement)).unwrap();
         cross_subtree(&mut a, idx, &mut b, s);
         assert_eq!(b.node_count(), 2);
         assert_eq!(b.edge_count(), 1);

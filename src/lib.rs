@@ -58,6 +58,7 @@ impl Plugin for CreaturaPlugin {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn sync_muscles(
     mut joints: Query<
         (

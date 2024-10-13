@@ -213,12 +213,12 @@ pub fn bitbrain_update(
         time: time.elapsed_seconds(),
     };
     for (nervous_system, mut brain) in &mut nervous_systems {
-        let sensors = &nervous_system.sensors;
+        let _sensors = &nervous_system.sensors;
         // TODO: Update the sensor values.
         brain.eval(&ctx);
         let muscles = &nervous_system.muscles;
-        for i in 0..muscles.len() {
-            if let Ok(mut muscle) = muscles_query.get_mut(muscles[i]) {
+        for (i, muscle) in muscles.iter().enumerate() {
+            if let Ok(mut muscle) = muscles_query.get_mut(*muscle) {
                 if let Some(v) = brain.read_muscle(i) {
                     muscle.value = *v;
                 }
@@ -249,7 +249,7 @@ impl Neuron {
                 .first()
                 .map(|f| f - inputs.iter().skip(1).sum::<f32>())
                 .unwrap_or(0.0),
-            Deriv { dir } => todo!("Deriv"),
+            Deriv { dir: _ } => todo!("Deriv"),
             Threshold(t) => inputs
                 .first()
                 .and_then(|f| (*f >= *t).then_some(1.0))
@@ -258,7 +258,7 @@ impl Neuron {
                 .first()
                 .and_then(|f| (*f >= *t).then_some(inputs.iter().skip(1).sum::<f32>()))
                 .unwrap_or(0.0),
-            Delay(count) => todo!("Delay"),
+            Delay(_count) => todo!("Delay"),
             AbsDiff => inputs
                 .first()
                 .map(|f| (f - inputs.iter().skip(1).sum::<f32>()).abs())
@@ -615,7 +615,7 @@ mod test {
     #[test]
     fn to_nvec4() {
         let n = Neuron::Sensor;
-        let v: Vec4 = n.clone().into();
+        let v: Vec4 = n.into();
         let n2: Neuron = v.into();
         assert_eq!(n, n2);
     }
@@ -623,7 +623,7 @@ mod test {
     #[test]
     fn to_nvec4_altered() {
         let n = Neuron::Sensor;
-        let mut v: Vec4 = n.clone().into();
+        let mut v: Vec4 = n.into();
         v.x += 0.5;
         let n2: Neuron = v.into();
         assert_ne!(n, n2);
