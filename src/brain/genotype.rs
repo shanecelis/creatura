@@ -5,12 +5,10 @@ use petgraph::{
     graph::DefaultIx,
     prelude::*,
     visit::{
-        IntoEdgesDirected,
         IntoNodeReferences,
     },
 };
 use rand::{
-    distributions::uniform::SampleRange,
     Rng,
 };
 use std::cmp::Ordering;
@@ -195,11 +193,6 @@ impl NVec4 {
 
 // #[derive(Clone, Debug)]
 // struct BrainGraph(DiGraph<NVec4, ()>);
-
-#[derive(Clone, Debug)]
-struct NeuronMutationOp {
-    mutation_rate: f64,
-}
 
 pub struct Context {
     time: f32,
@@ -434,30 +427,6 @@ where
         count += m.mutate(&mut graph[idx], rng);
     }
     count
-}
-
-fn try_repeat<F, R, I, O, E>(
-    attempts: usize,
-    mut attempt: F,
-    input: &mut I,
-    mut remedy: R,
-) -> Result<(O, usize), E>
-where
-    F: FnMut(&I) -> Result<O, E>,
-    R: FnMut(&mut I, E) -> Result<(), E>,
-{
-    for i in 0..attempts {
-        match attempt(input) {
-            Ok(output) => return Ok((output, i)),
-            Err(error) => {
-                if i + 1 == attempts {
-                    return Err(error);
-                }
-                remedy(input, error)?
-            }
-        }
-    }
-    unreachable!();
 }
 
 impl Brain {
