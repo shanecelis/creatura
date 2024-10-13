@@ -11,7 +11,6 @@ pub struct Part {
     pub rotation: Quaternion,
 }
 
-
 impl Default for Part {
     fn default() -> Self {
         Self {
@@ -104,11 +103,10 @@ impl Stamp for Part {
                 return Some(StampInfo {
                     stamp_delta: delta,
                     stamp_anchor: p2,
-                    surface_anchor: p1
+                    surface_anchor: p1,
                 });
             }
         }
         None
     }
-
 }

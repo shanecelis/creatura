@@ -1,16 +1,22 @@
 use super::*;
-use crate::{rdfs::*, operator::*};
+use crate::{operator::*, rdfs::*};
 use core::f32::consts::FRAC_PI_4;
-use petgraph::{graph::{DefaultIx, IndexType}, prelude::*, EdgeType};
-use weighted_rand::{
-    table::WalkerTable,
-    builder::{NewBuilder, WalkerTableBuilder},
-
+use petgraph::{
+    graph::{DefaultIx, IndexType},
+    prelude::*,
+    EdgeType,
 };
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::collections::HashMap;
-use rand::{Rng, rngs::StdRng, SeedableRng};
+use weighted_rand::{
+    builder::{NewBuilder, WalkerTableBuilder},
+    table::WalkerTable,
+};
 
-fn rand_elem<T,R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T> where R: Rng {
+fn rand_elem<T, R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T>
+where
+    R: Rng,
+{
     let mut result = None;
     let mut i = 1;
     for item in iter {
@@ -22,11 +28,14 @@ fn rand_elem<T,R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T> where
     result
 }
 
-fn nodes_of_subtree<N,E,Ty,Ix>(graph: &mut Graph<N,E,Ty,Ix>, start: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>>
+fn nodes_of_subtree<N, E, Ty, Ix>(
+    graph: &mut Graph<N, E, Ty, Ix>,
+    start: NodeIndex<Ix>,
+) -> Vec<NodeIndex<Ix>>
 where
     Ty: EdgeType,
-    Ix: IndexType {
-
+    Ix: IndexType,
+{
     let mut dfs = Dfs::new(&*graph, start);
     let _ = dfs.next(&*graph); // skip the start node.
     let mut v = vec![];
@@ -37,11 +46,11 @@ where
     v
 }
 
-fn prune_subtree<N,E,Ty,Ix>(graph: &mut Graph<N,E,Ty,Ix>, start: NodeIndex<Ix>)
+fn prune_subtree<N, E, Ty, Ix>(graph: &mut Graph<N, E, Ty, Ix>, start: NodeIndex<Ix>)
 where
     Ty: EdgeType,
-    Ix: IndexType {
-
+    Ix: IndexType,
+{
     let mut dfs = Dfs::new(&*graph, start);
     let _ = dfs.next(&*graph); // skip the start node.
     while let Some(node) = dfs.next(&*graph) {
@@ -49,13 +58,17 @@ where
     }
 }
 
-fn add_subtree<N,E,Ty,Ix>(source: &Graph<N,E,Ty,Ix>, source_root: NodeIndex<Ix>, dest: &mut Graph<N,E,Ty,Ix>, dest_root: NodeIndex<Ix>)
-where
+fn add_subtree<N, E, Ty, Ix>(
+    source: &Graph<N, E, Ty, Ix>,
+    source_root: NodeIndex<Ix>,
+    dest: &mut Graph<N, E, Ty, Ix>,
+    dest_root: NodeIndex<Ix>,
+) where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
-    Ix: IndexType {
-
+    Ix: IndexType,
+{
     let mut nodes = HashMap::new();
     let mut dfs = Dfs::new(source, source_root);
 
@@ -67,25 +80,28 @@ where
     }
     // Go through edges of nodes.
     // for node in nodes.keys() {
-        for edge in source.edge_references() {
-            if let Some((a, b)) = nodes.get(&edge.source()).zip(nodes.get(&edge.target())) {
-                dest.add_edge(*a, *b, edge.weight().clone());
-            }
+    for edge in source.edge_references() {
+        if let Some((a, b)) = nodes.get(&edge.source()).zip(nodes.get(&edge.target())) {
+            dest.add_edge(*a, *b, edge.weight().clone());
         }
+    }
     // }
 }
 
-fn tree_crosser<N,E,Ty,Ix,R>(a: &mut Graph<N,E,Ty,Ix>,
-                              b: &mut Graph<N,E,Ty,Ix>,
-                              rng: &mut R) -> u32
-where R: Rng,
+fn tree_crosser<N, E, Ty, Ix, R>(
+    a: &mut Graph<N, E, Ty, Ix>,
+    b: &mut Graph<N, E, Ty, Ix>,
+    rng: &mut R,
+) -> u32
+where
+    R: Rng,
     N: Clone,
     E: Clone,
     Ty: EdgeType,
-    Ix: IndexType
+    Ix: IndexType,
 {
-    if let Some (x) = rand_elem(a.node_indices(), rng) {
-        if let Some (y) = rand_elem(b.node_indices(), rng) {
+    if let Some(x) = rand_elem(a.node_indices(), rng) {
+        if let Some(y) = rand_elem(b.node_indices(), rng) {
             cross_subtree(a, x, b, y);
             return 2;
         }
@@ -93,13 +109,17 @@ where R: Rng,
     0
 }
 
-fn cross_subtree<N,E,Ty,Ix>(source: &mut Graph<N,E,Ty,Ix>, source_root: NodeIndex<Ix>,
-                            dest: &mut Graph<N,E,Ty,Ix>, dest_root: NodeIndex<Ix>)
-where
+fn cross_subtree<N, E, Ty, Ix>(
+    source: &mut Graph<N, E, Ty, Ix>,
+    source_root: NodeIndex<Ix>,
+    dest: &mut Graph<N, E, Ty, Ix>,
+    dest_root: NodeIndex<Ix>,
+) where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
-    Ix: IndexType {
+    Ix: IndexType,
+{
     let source_prune = nodes_of_subtree(source, source_root);
     let dest_prune = nodes_of_subtree(dest, dest_root);
     add_subtree(source, source_root, dest, dest_root);
@@ -113,13 +133,13 @@ where
     }
 }
 
-fn prune_connection<N,E,Ty,Ix,R>()
-                                 -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+fn prune_connection<N, E, Ty, Ix, R>() -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
     Ix: IndexType,
-    R: Rng {
-    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         if let Some(edge) = rand_elem(graph.edge_indices(), rng) {
             graph.remove_edge(edge);
             return 1;
@@ -128,13 +148,15 @@ where
     }
 }
 
-fn add_connection<N,E,Ty,Ix,R>(generator: impl Generator<E,R>)
-                               -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+fn add_connection<N, E, Ty, Ix, R>(
+    generator: impl Generator<E, R>,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
     Ix: IndexType,
-    R: Rng {
-    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         if let Some(a) = rand_elem(graph.node_indices(), rng) {
             if let Some(b) = rand_elem(graph.node_indices(), rng) {
                 graph.add_edge(a, b, generator.generate(rng));
@@ -145,25 +167,30 @@ where
     }
 }
 
-fn add_node<N,E,Ty,Ix,R>(generator: impl Generator<N, R>)
-                         -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+fn add_node<N, E, Ty, Ix, R>(
+    generator: impl Generator<N, R>,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
     Ix: IndexType,
-    R: Rng {
-    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         graph.add_node(generator.generate(rng));
         1
     }
 }
 
-fn mutate_nodes<N,E,Ty,Ix,R>(mutator: impl Mutator<N, R>, mutation_rate: f32)
-                             -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+fn mutate_nodes<N, E, Ty, Ix, R>(
+    mutator: impl Mutator<N, R>,
+    mutation_rate: f32,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
     Ix: IndexType,
-    R: Rng {
-    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         let mut count = 0u32;
         for node in graph.node_weights_mut() {
             if rng.with_prob(mutation_rate) {
@@ -177,16 +204,21 @@ where
 
 /// Use one of a collection of weighted mutators when called upon.
 struct WeightedMutator<'a, G, R> {
-    mutators: Vec<&'a dyn Mutator<G,R>>,
+    mutators: Vec<&'a dyn Mutator<G, R>>,
     table: WalkerTable,
 }
 
 impl<'a, G, R> WeightedMutator<'a, G, R> {
-
     fn new<T>(mutators: Vec<&'a dyn Mutator<G, R>>, weights: &[T]) -> Self
-    where WalkerTableBuilder: NewBuilder<T> {
+    where
+        WalkerTableBuilder: NewBuilder<T>,
+    {
         let builder = WalkerTableBuilder::new(weights);
-        assert_eq!(mutators.len(), weights.len(), "Mutators and weights different lengths.");
+        assert_eq!(
+            mutators.len(),
+            weights.len(),
+            "Mutators and weights different lengths."
+        );
         Self {
             table: builder.build(),
             mutators,
@@ -194,20 +226,25 @@ impl<'a, G, R> WeightedMutator<'a, G, R> {
     }
 }
 
-impl<'a, G, R> Mutator<G,R> for WeightedMutator<'a, G, R> where R: Rng {
-
+impl<'a, G, R> Mutator<G, R> for WeightedMutator<'a, G, R>
+where
+    R: Rng,
+{
     fn mutate(&self, genome: &mut G, rng: &mut R) -> u32 {
         self.mutators[dbg!(self.table.next_rng(rng))].mutate(genome, rng)
     }
 }
 
-fn mutate_edges<N,E,Ty,Ix,R>(mutator: impl Mutator<E, R>, mutation_rate: f32)
-                             -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+fn mutate_edges<N, E, Ty, Ix, R>(
+    mutator: impl Mutator<E, R>,
+    mutation_rate: f32,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
     Ix: IndexType,
-    R: Rng {
-    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         let mut count = 0u32;
         for edge in graph.edge_weights_mut() {
             if rng.with_prob(mutation_rate) {
@@ -450,8 +487,8 @@ pub fn cube_body(
 
 #[cfg(test)]
 mod test {
-    use crate::brain::{Neuron, lessin};
     use super::*;
+    use crate::brain::{lessin, Neuron};
     use petgraph::dot::Dot;
 
     #[test]
@@ -477,30 +514,46 @@ mod test {
 
     #[test]
     fn weighted_mutator() {
-
         let i = 2;
         // for i in 0..100 {
         let mut rng = StdRng::seed_from_u64(i);
         let a = uniform_mutator(0.0, 1.0);
         let b = uniform_mutator(2.0, 10.0);
-        let w = WeightedMutator::new(vec![&a, &b],
-                                     &[0.0, 1.0]);
+        let w = WeightedMutator::new(vec![&a, &b], &[0.0, 1.0]);
         let mut v = 0.1;
         assert_eq!(w.mutate(&mut v, &mut rng), 1);
-            assert!(v > 2.0, "v {v} > 2.0, seed {i}");
+        assert!(v > 2.0, "v {v} > 2.0, seed {i}");
         // }
-
     }
 
     #[test]
     fn test_prune_subtree() {
         let mut a = lessin::fig4_3();
-        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Muscle).count(), 3);
-        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Complement).count(), 1);
-        let sin_idx = a.node_indices().find(|n| matches!(a[*n], Neuron::Sin { .. })).unwrap();
+        assert_eq!(
+            a.node_weights().filter(|w| *w == &Neuron::Muscle).count(),
+            3
+        );
+        assert_eq!(
+            a.node_weights()
+                .filter(|w| *w == &Neuron::Complement)
+                .count(),
+            1
+        );
+        let sin_idx = a
+            .node_indices()
+            .find(|n| matches!(a[*n], Neuron::Sin { .. }))
+            .unwrap();
         prune_subtree(&mut a, sin_idx);
-        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Muscle).count(), 2);
-        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Complement).count(), 0);
+        assert_eq!(
+            a.node_weights().filter(|w| *w == &Neuron::Muscle).count(),
+            2
+        );
+        assert_eq!(
+            a.node_weights()
+                .filter(|w| *w == &Neuron::Complement)
+                .count(),
+            0
+        );
     }
 
     #[test]
@@ -508,7 +561,10 @@ mod test {
         let a = lessin::fig4_3();
         let mut b = Graph::new();
         let s = b.add_node(Neuron::Sensor);
-        let idx = a.node_indices().find(|n| matches!(a[*n], Neuron::Complement)).unwrap();
+        let idx = a
+            .node_indices()
+            .find(|n| matches!(a[*n], Neuron::Complement))
+            .unwrap();
         add_subtree(&a, idx, &mut b, s);
         assert_eq!(b.node_count(), 2);
         assert_eq!(b.edge_count(), 1);
@@ -522,7 +578,10 @@ mod test {
         let s = b.add_node(Neuron::Sensor);
         let t = b.add_node(Neuron::Mult);
         let _ = b.add_edge(s, t, ());
-        let idx = a.node_indices().find(|n| matches!(a[*n], Neuron::Complement)).unwrap();
+        let idx = a
+            .node_indices()
+            .find(|n| matches!(a[*n], Neuron::Complement))
+            .unwrap();
         cross_subtree(&mut a, idx, &mut b, s);
         assert_eq!(b.node_count(), 2);
         assert_eq!(b.edge_count(), 1);

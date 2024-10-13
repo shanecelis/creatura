@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+use crate::stamp::*;
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
-use crate::stamp::*;
 pub mod brain;
 pub mod operator;
-pub mod stamp;
 mod repeat_visit_map;
+pub mod stamp;
 
 #[cfg(feature = "dsp")]
 mod dsp;
@@ -199,7 +199,6 @@ pub struct MuscleGene {
     max_strength: f32,
 }
 
-
 #[derive(Clone, Debug, Copy)]
 pub enum EdgeOp {
     /// Relfect the edge through a plane
@@ -228,4 +227,3 @@ pub struct PartEdge {
     pub op: Option<EdgeOp>,
     pub muscles: Vec<MuscleGene>,
 }
-

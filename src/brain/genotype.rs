@@ -1,9 +1,5 @@
-use crate::{Muscle, NervousSystem, operator::*};
+use crate::{operator::*, Muscle, NervousSystem};
 use bevy::prelude::*;
-use rand::{
-    Rng,
-    distributions::uniform::{SampleUniform, SampleRange},
-};
 use petgraph::{
     algo::{tarjan_scc, toposort, Cycle, DfsSpace},
     graph::DefaultIx,
@@ -12,6 +8,10 @@ use petgraph::{
         GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers,
         IntoNodeReferences, NodeIndexable, Visitable,
     },
+};
+use rand::{
+    distributions::uniform::{SampleRange, SampleUniform},
+    Rng,
 };
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
@@ -105,16 +105,16 @@ impl From<Neuron> for Vec4 {
                 v.y = amp;
                 v.z = freq;
                 v.w = phase;
-            },
+            }
             Complement => v.x = 3.0,
             Const(c) => {
                 v.x = 4.0;
                 v.y = c;
-            },
+            }
             Scale(s) => {
                 v.x = 5.0;
                 v.y = s;
-            },
+            }
             Mult => v.x = 6.0,
             Div => v.x = 7.0,
             Sum => v.x = 8.0,
@@ -122,19 +122,19 @@ impl From<Neuron> for Vec4 {
             Deriv { dir } => {
                 v.x = 10.0;
                 v.y = if dir { 1.0 } else { 0.0 };
-            },
+            }
             Threshold(t) => {
                 v.x = 11.0;
                 v.y = t;
-            },
+            }
             Switch(t) => {
                 v.x = 12.0;
                 v.y = t;
-            },
+            }
             Delay(d) => {
                 v.x = 13.0;
                 v.w = d as f32 / 5.0;
-            },
+            }
             AbsDiff => v.x = 14.0,
         }
         v.x /= NEURON_VARIANT_COUNT as f32;
@@ -153,17 +153,21 @@ impl From<Vec4> for NVec4 {
 
 impl NVec4 {
     fn generate<R>(rnd: &mut R) -> Self
-    where R: Rng
+    where
+        R: Rng,
     {
         let g = uniform_generator(0.0, 1.0);
-        NVec4(Vec4::new(g.generate(rnd),
-                        g.generate(rnd),
-                        g.generate(rnd),
-                        g.generate(rnd)))
+        NVec4(Vec4::new(
+            g.generate(rnd),
+            g.generate(rnd),
+            g.generate(rnd),
+            g.generate(rnd),
+        ))
     }
 
     fn mutate_all<R>(gene: &mut Self, rnd: &mut R) -> u32
-    where R: Rng
+    where
+        R: Rng,
     {
         let m = uniform_mutator(0.0, 0.1);
         m.mutate(&mut gene.0.x, rnd);
@@ -174,7 +178,8 @@ impl NVec4 {
     }
 
     fn mutate_one<R>(gene: &mut Self, rnd: &mut R) -> u32
-    where R: Rng
+    where
+        R: Rng,
     {
         let m = uniform_mutator(0.0, 0.1);
         match rnd.gen_range(0..4) {
@@ -182,7 +187,7 @@ impl NVec4 {
             1 => m.mutate(&mut gene.0.y, rnd),
             2 => m.mutate(&mut gene.0.z, rnd),
             3 => m.mutate(&mut gene.0.w, rnd),
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         1
     }
@@ -265,7 +270,6 @@ impl Neuron {
                 .unwrap_or(0.0),
         }
     }
-
 }
 
 /// Order sensors first, inner nodes second, muscles last.
@@ -420,8 +424,10 @@ impl BitBrain {
 }
 
 pub fn nvec4_brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u32
-where R: Rng {
-    let m = NVec4::mutate_one;//.with_prob(0.1);
+where
+    R: Rng,
+{
+    let m = NVec4::mutate_one; //.with_prob(0.1);
 
     let mut count = 0;
     for idx in graph.node_indices() {

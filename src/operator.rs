@@ -8,7 +8,7 @@ use rand_distr::{Distribution, Normal, StandardNormal};
 use std::cmp::Ordering;
 use std::ops::AddAssign;
 
-pub trait Generator<G,R> {
+pub trait Generator<G, R> {
     /// Generate a genome.
     fn generate(&self, rng: &mut R) -> G;
 
@@ -34,8 +34,8 @@ pub trait Generator<G,R> {
 
 impl<F, G, R> Generator<G, R> for F
 where
-    F: Fn(&mut R) -> G {
-
+    F: Fn(&mut R) -> G,
+{
     fn generate(&self, rng: &mut R) -> G {
         self(rng)
     }
@@ -105,7 +105,6 @@ pub trait Mutator<G, R> {
             }
         }
     }
-
 }
 
 // struct SliceMutator<T>(T);
@@ -171,7 +170,10 @@ where
         .map(|generator| generator.into_mutator(|generated, mutated| *mutated += generated))
 }
 
-pub fn swapper<G, R>() -> impl Crosser<G, R> where R: Rng {
+pub fn swapper<G, R>() -> impl Crosser<G, R>
+where
+    R: Rng,
+{
     |a: &mut G, b: &mut G, _rng: &mut R| {
         std::mem::swap(a, b);
         1
@@ -198,7 +200,6 @@ where
 {
     rng.sample(rand::distributions::Open01)
 }
-
 
 #[cfg(test)]
 mod test {

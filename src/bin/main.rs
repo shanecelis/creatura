@@ -2,9 +2,11 @@ use avian3d::{math::*, prelude::*};
 use avian_pickup::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
-use bevy::{app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution};
+use bevy::{
+    app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution,
+};
 
-use creatura::{brain::*, graph::*, *, operator::*};
+use creatura::{brain::*, graph::*, operator::*, *};
 use petgraph::prelude::*;
 
 fn main() {
@@ -12,16 +14,13 @@ fn main() {
 
     let blue = Color::srgb_u8(27, 174, 228);
 
-        app.add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        resolution: WindowResolution::new(400.0, 400.0),
-                        ..default()
-                    }),
-                    ..default()
-                })
-        );
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            resolution: WindowResolution::new(400.0, 400.0),
+            ..default()
+        }),
+        ..default()
+    }));
     // Add plugins and startup system
     app.add_plugins((
         // DefaultPlugins,
@@ -35,7 +34,7 @@ fn main() {
     .insert_resource(ClearColor(blue))
     .add_systems(Startup, setup_env)
     .add_systems(Startup, construct_creature)
-        .add_systems(Update, mutate_on_space)
+    .add_systems(Update, mutate_on_space)
     .add_plugins(PanOrbitCameraPlugin)
     //
     .add_systems(
@@ -147,10 +146,11 @@ fn construct_creature(
     ));
 }
 
-fn mutate_on_space(mut query: Query<(&mut BitBrain, &mut Genotype<DiGraph<NVec4, ()>>)>,
-                   input: Res<ButtonInput<KeyCode>>) {
+fn mutate_on_space(
+    mut query: Query<(&mut BitBrain, &mut Genotype<DiGraph<NVec4, ()>>)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
     if input.just_pressed(KeyCode::Space) {
-
         let mut rng = rand::thread_rng();
         let (mut brain, mut genotype) = query.single_mut();
         let mut g = genotype.0.clone();
