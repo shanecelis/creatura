@@ -312,19 +312,20 @@ where
             let joint_rotation = joint_rotation
                 .map(|q| q * state.rotation)
                 .unwrap_or(state.rotation);
-            let joint_dir = joint_rotation * principle_axis;
-            child.position = parent.position + 10.0 * joint_dir;
+            let joint_dir = Dir3::new(joint_rotation * principle_axis).expect("joint_dir");
+            // child.position = parent.position + 10.0 * joint_dir;
             child.extents = state.scale * graph[node].extents;
             // Position child
-            if let Some((p1, p2)) = child.stamp(parent) {
+            if let Some(stamp_info) = child.stamp(parent, joint_dir) {
+                child.position = parent.position + stamp_info.stamp_delta;
                 let child_id = make_part(&child, commands).unwrap();
                 if let Some(e) = make_joint(
                     &JointConfig {
                         parent: *parent_id,
-                        parent_anchor: p1,
+                        parent_anchor: stamp_info.surface_anchor,
                         child: child_id,
-                        child_anchor: p2,
-                        normal: joint_dir,
+                        child_anchor: stamp_info.stamp_anchor,
+                        normal: *joint_dir,
                         tangent: joint_rotation * secondary_axis,
                     },
                     commands,
@@ -338,10 +339,10 @@ where
                         let parent_anchor_dir: Dir3 = Dir3::new(r * principle_axis).expect("dir3");
                         let child_anchor_dir: Dir3 =
                             Dir3::new(r * muscle.child * principle_axis).expect("dir3");
-                        dbg!(parent);
-                        dbg!(parent_anchor_dir);
-                        dbg!(child);
-                        dbg!(child_anchor_dir);
+                        // dbg!(parent);
+                        // dbg!(parent_anchor_dir);
+                        // dbg!(child);
+                        // dbg!(child_anchor_dir);
                         if let Some((a1, a2)) = parent
                             .cast_to(parent_anchor_dir)
                             .zip(child.cast_to(child_anchor_dir))
@@ -357,8 +358,8 @@ where
                                 anchor_local: a2,
                                 part: &child,
                             };
-                            dbg!(&parent_site);
-                            dbg!(&child_site);
+                            // dbg!(&parent_site);
+                            // dbg!(&child_site);
                             if let Some(e) = make_muscle(&parent_site, &child_site, commands) {
                                 entities.push(e);
                             }

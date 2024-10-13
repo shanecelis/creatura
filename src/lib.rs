@@ -3,8 +3,10 @@
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
+use crate::stamp::*;
 pub mod brain;
 pub mod operator;
+pub mod stamp;
 mod repeat_visit_map;
 
 #[cfg(feature = "dsp")]
@@ -190,11 +192,12 @@ impl SpringOscillator {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub struct Part {
-    pub extents: Vector3,
-    pub position: Vector3,
-    pub rotation: Quaternion,
+pub struct MuscleGene {
+    parent: Quaternion,
+    child: Quaternion,
+    max_strength: f32,
 }
+
 
 #[derive(Clone, Debug, Copy)]
 pub enum EdgeOp {
@@ -202,13 +205,6 @@ pub enum EdgeOp {
     Reflect { normal: Vector3 },
     /// Use a radial symmetry with a rotation normal.
     Radial { normal: Vector3, symmetry: u8 },
-}
-
-#[derive(Clone, Debug, Copy)]
-pub struct MuscleGene {
-    parent: Quaternion,
-    child: Quaternion,
-    max_strength: f32,
 }
 
 impl Default for MuscleGene {
@@ -232,149 +228,3 @@ pub struct PartEdge {
     pub muscles: Vec<MuscleGene>,
 }
 
-impl Default for Part {
-    fn default() -> Self {
-        Self {
-            extents: Vector3::ONE,
-            position: Vector3::ZERO,
-            rotation: Quaternion::IDENTITY,
-        }
-    }
-}
-
-impl Part {
-    pub fn shape(&self) -> Cuboid {
-        let v = self.extents.f32();
-        Cuboid::new(v[0], v[1], v[2])
-    }
-
-    pub fn collider(&self) -> Collider {
-        let v = self.extents;
-        Collider::cuboid(v[0], v[1], v[2])
-    }
-
-    pub fn volume(&self) -> Scalar {
-        let v = self.extents;
-        v.x * v.y * v.z
-    }
-}
-
-// pub struct StampResult {
-//     stamp_delta: Vector3,
-//     stamp_anchor: Vector3,
-//     stampable_anchor: Vector3,
-// }
-
-/// A stampable is an object that can be "stamped" onto another object. This
-/// means that it is moved so that its exterior is just touching the object it
-/// was stamped onto.
-pub trait Stampable {
-    /// Return object position.
-    fn position(&self) -> Vector3;
-    /// Return object orientation.
-    fn rotation(&self) -> Quaternion;
-    /// Stamp object onto another, return the local vectors of each where they touch.
-    fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)>;
-    /// Raycast from within the object to determine a point on its surface.
-    fn cast_to(&self, point: Dir3) -> Option<Vector3>;
-    /// Convert a world point to a local point.
-    fn to_local(&self, point: Vector3) -> Vector3;
-    #[allow(clippy::wrong_self_convention)]
-    /// Convert a local point to a world point.
-    fn from_local(&self, point: Vector3) -> Vector3;
-}
-
-impl Stampable for Part {
-    fn position(&self) -> Vector3 {
-        self.position
-    }
-    fn rotation(&self) -> Quaternion {
-        self.rotation
-    }
-
-    fn to_local(&self, point: Vector3) -> Vector3 {
-        Mat4::from_scale_rotation_translation(Vector::ONE, self.rotation, self.position)
-            .inverse()
-            .transform_point(point)
-    }
-
-    fn from_local(&self, point: Vector3) -> Vector3 {
-        ColliderTransform {
-            translation: self.position,
-            rotation: self.rotation.into(),
-            scale: Vector::ONE,
-        }
-        .transform_point(point)
-    }
-
-    fn stamp(&mut self, onto: &impl Stampable) -> Option<(Vector3, Vector3)> {
-        let dir = Dir3::new(onto.position() - self.position()).expect("dir3");
-        if let Some(p1) = onto.cast_to(-dir) {
-            if let Some(p2) = self.cast_to(dir) {
-                let intersect1 = onto.from_local(p1);
-                let intersect2 = self.from_local(p2);
-                // We can put ourself into the right place.
-                let delta = intersect2 - intersect1;
-                // let p1 = onto.to_local(intersect1);
-                // let p2 = self.to_local(intersect2);
-                self.position -= delta;
-                return Some((p1, p2));
-            }
-        }
-        None
-    }
-
-    fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
-        self.collider()
-            // .cast_ray(self.position(), self.rotation, self.position(), dir.as_vec3(), 100., false)
-            // .map(|(toi, _normal)| dir * toi + self.position())
-            .cast_ray(
-                Vec3::ZERO,
-                Quaternion::IDENTITY,
-                Vec3::ZERO,
-                (self.rotation.inverse() * dir).as_vec3(),
-                100.,
-                false,
-            )
-            .map(|(toi, _normal)| dir * toi)
-    }
-}
-
-/// Returns a vector of parts and positions `(parent, child)`.
-pub fn make_snake(n: u8, scale: f32, parent: &Part) -> Vec<(Part, (Vector3, Vector3))> {
-    let mut results = Vec::new();
-    let mut parent = *parent;
-    for _ in 0..n {
-        let mut child: Part = parent;
-        child.position += 5. * Vector3::X;
-        child.extents *= scale; //0.6;
-        if let Some((p1, p2)) = child.stamp(&parent) {
-            results.push((child, (p1, p2)));
-        }
-        parent = child;
-    }
-    results
-}
-
-// pub fn construct_phenotype(genotype: &Graph<Part,
-
-#[derive(PartialEq, Clone, Copy)]
-enum PartParity {
-    Even,
-    Odd,
-}
-
-impl PartParity {
-    fn next(&self) -> Self {
-        match self {
-            PartParity::Even => PartParity::Odd,
-            PartParity::Odd => PartParity::Even,
-        }
-    }
-}
-
-struct PartData {
-    part: Part,
-    id: Option<Entity>,
-    parity: Option<PartParity>,
-}

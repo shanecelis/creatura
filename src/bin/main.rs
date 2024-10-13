@@ -4,7 +4,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 use bevy::{app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution};
 
-use creatura::{brain::*, graph::*, *, operator::*};
+use creatura::{brain::*, graph::*, *, operator::*, stamp::*};
 use petgraph::prelude::*;
 
 fn main() {
