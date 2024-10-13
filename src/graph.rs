@@ -1,5 +1,5 @@
 use super::*;
-use crate::{operator::*, rdfs::*};
+use crate::{operator::*, rdfs::*, body::*};
 use core::f32::consts::FRAC_PI_4;
 use petgraph::{
     graph::{DefaultIx, IndexType},
@@ -41,7 +41,6 @@ where
     let mut v = vec![];
     while let Some(node) = dfs.next(&*graph) {
         v.push(node);
-        // graph.remove_node(node);
     }
     v
 }
@@ -78,14 +77,12 @@ fn add_subtree<N, E, Ty, Ix>(
         let dst_idx = dest.add_node(source[src_idx].clone());
         nodes.insert(src_idx, dst_idx);
     }
-    // Go through edges of nodes.
-    // for node in nodes.keys() {
+    // Go through all the edges.
     for edge in source.edge_references() {
         if let Some((a, b)) = nodes.get(&edge.source()).zip(nodes.get(&edge.target())) {
             dest.add_edge(*a, *b, edge.weight().clone());
         }
     }
-    // }
 }
 
 fn tree_crosser<N, E, Ty, Ix, R>(
@@ -253,33 +250,6 @@ where
         }
         count
     }
-}
-
-pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<DefaultIx>) {
-    let part = Part {
-        extents: Vector::new(1., 1., 1.),
-        position: Vector::ZERO,
-        rotation: Quaternion::IDENTITY,
-    };
-    let mut graph = DiGraph::new();
-    let index = graph.add_node(part);
-    graph.add_edge(
-        index,
-        index,
-        PartEdge {
-            joint_rotation: Quaternion::IDENTITY,
-            rotation: Quaternion::IDENTITY,
-            scale: 0.6 * Vector3::ONE,
-            iteration_count: part_count,
-            op: None,
-            muscles: vec![MuscleGene {
-                parent: Quaternion::from_axis_angle(Vec3::Z, FRAC_PI_4),
-                child: Quaternion::IDENTITY,
-                max_strength: 1.0,
-            }],
-        },
-    );
-    (graph, index)
 }
 
 #[derive(Clone, Copy, Debug)]

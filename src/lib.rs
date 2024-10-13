@@ -1,10 +1,9 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
 use crate::stamp::*;
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use nalgebra::{point, Isometry};
 pub mod brain;
+pub mod body;
 pub mod operator;
 mod repeat_visit_map;
 pub mod stamp;
@@ -192,38 +191,3 @@ impl SpringOscillator {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
-pub struct MuscleGene {
-    parent: Quaternion,
-    child: Quaternion,
-    max_strength: f32,
-}
-
-#[derive(Clone, Debug, Copy)]
-pub enum EdgeOp {
-    /// Relfect the edge through a plane
-    Reflect { normal: Vector3 },
-    /// Use a radial symmetry with a rotation normal.
-    Radial { normal: Vector3, symmetry: u8 },
-}
-
-impl Default for MuscleGene {
-    fn default() -> Self {
-        Self {
-            parent: Quaternion::IDENTITY,
-            child: Quaternion::IDENTITY,
-            max_strength: 1.0,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PartEdge {
-    // joint_type:
-    pub joint_rotation: Quaternion,
-    pub rotation: Quaternion,
-    pub scale: Vector3,
-    pub iteration_count: u8,
-    pub op: Option<EdgeOp>,
-    pub muscles: Vec<MuscleGene>,
-}

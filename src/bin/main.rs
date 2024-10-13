@@ -6,7 +6,7 @@ use bevy::{
     app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution,
 };
 
-use creatura::{brain::*, graph::*, operator::*, *};
+use creatura::{body::*, brain::*, graph::*, operator::*, *};
 use petgraph::prelude::*;
 
 fn main() {
