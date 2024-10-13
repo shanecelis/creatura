@@ -3,7 +3,7 @@ use petgraph::{algo::toposort, graph::DefaultIx, prelude::*, visit::IntoNodeRefe
 
 /// Lessin, D. Evolved Virtual Creatures as Content: Increasing Behavioral and
 /// Morphological Complexity. (2015).
-pub fn figure4_3() -> DiGraph<Neuron, ()> {
+pub fn fig4_3() -> DiGraph<Neuron, ()> {
     use Neuron::*;
     let mut g = Graph::new();
     g.add_node(Sensor);

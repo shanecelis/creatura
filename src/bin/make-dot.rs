@@ -48,7 +48,7 @@ fn reify_tree() -> Graph<&'static str, Edge> {
 /// ```
 fn main() {
     // let graph = reify_tree();
-    let graph = creatura::brain::lessin::figure4_3();
+    let graph = creatura::brain::lessin::fig4_3();
 
     // println!("{}", Dot::with_config(&tree, &[]));
     println!("{:?}", Dot::with_config(&graph, &[]));

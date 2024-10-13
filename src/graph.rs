@@ -22,7 +22,22 @@ fn rand_elem<T,R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T> where
     result
 }
 
-fn prune_subtree<N,E,Ty,Ix,R>(graph: &mut Graph<N,E,Ty,Ix>, start: NodeIndex<Ix>)
+fn nodes_of_subtree<N,E,Ty,Ix>(graph: &mut Graph<N,E,Ty,Ix>, start: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>>
+where
+    Ty: EdgeType,
+    Ix: IndexType {
+
+    let mut dfs = Dfs::new(&*graph, start);
+    let _ = dfs.next(&*graph); // skip the start node.
+    let mut v = vec![];
+    while let Some(node) = dfs.next(&*graph) {
+        v.push(node);
+        // graph.remove_node(node);
+    }
+    v
+}
+
+fn prune_subtree<N,E,Ty,Ix>(graph: &mut Graph<N,E,Ty,Ix>, start: NodeIndex<Ix>)
 where
     Ty: EdgeType,
     Ix: IndexType {
@@ -34,7 +49,7 @@ where
     }
 }
 
-fn add_subtree<N,E,Ty,Ix,R>(source: &Graph<N,E,Ty,Ix>, source_root: NodeIndex<Ix>, dest: &mut Graph<N,E,Ty,Ix>, dest_root: NodeIndex<Ix>)
+fn add_subtree<N,E,Ty,Ix>(source: &Graph<N,E,Ty,Ix>, source_root: NodeIndex<Ix>, dest: &mut Graph<N,E,Ty,Ix>, dest_root: NodeIndex<Ix>)
 where
     N: Clone,
     E: Clone,
@@ -58,6 +73,44 @@ where
             }
         }
     // }
+}
+
+fn tree_crosser<N,E,Ty,Ix,R>(a: &mut Graph<N,E,Ty,Ix>,
+                              b: &mut Graph<N,E,Ty,Ix>,
+                              rng: &mut R) -> u32
+where R: Rng,
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType
+{
+    if let Some (x) = rand_elem(a.node_indices(), rng) {
+        if let Some (y) = rand_elem(b.node_indices(), rng) {
+            cross_subtree(a, x, b, y);
+            return 2;
+        }
+    }
+    0
+}
+
+fn cross_subtree<N,E,Ty,Ix>(source: &mut Graph<N,E,Ty,Ix>, source_root: NodeIndex<Ix>,
+                            dest: &mut Graph<N,E,Ty,Ix>, dest_root: NodeIndex<Ix>)
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType {
+    let source_prune = nodes_of_subtree(source, source_root);
+    let dest_prune = nodes_of_subtree(dest, dest_root);
+    add_subtree(source, source_root, dest, dest_root);
+    add_subtree(dest, dest_root, source, source_root);
+    for n in source_prune {
+        source.remove_node(n);
+    }
+
+    for n in dest_prune {
+        dest.remove_node(n);
+    }
 }
 
 fn prune_connection<N,E,Ty,Ix,R>()
@@ -122,6 +175,7 @@ where
     }
 }
 
+/// Use one of a collection of weighted mutators when called upon.
 struct WeightedMutator<'a, G, R> {
     mutators: Vec<&'a dyn Mutator<G,R>>,
     table: WalkerTable,
@@ -394,7 +448,9 @@ pub fn cube_body(
 
 #[cfg(test)]
 mod test {
+    use crate::brain::{Neuron, lessin};
     use super::*;
+    use petgraph::dot::Dot;
 
     #[test]
     fn test_cast_to() {
@@ -432,5 +488,43 @@ mod test {
             assert!(v > 2.0, "v {v} > 2.0, seed {i}");
         // }
 
+    }
+
+    #[test]
+    fn test_prune_subtree() {
+        let mut a = lessin::fig4_3();
+        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Muscle).count(), 3);
+        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Complement).count(), 1);
+        let sin_idx = a.node_indices().filter(|n| matches!(a[*n], Neuron::Sin { freq, amp, phase })).next().unwrap();
+        prune_subtree(&mut a, sin_idx);
+        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Muscle).count(), 2);
+        assert_eq!(a.node_weights().filter(|w| *w == &Neuron::Complement).count(), 0);
+    }
+
+    #[test]
+    fn test_add_subtree() {
+        let a = lessin::fig4_3();
+        let mut b = Graph::new();
+        let s = b.add_node(Neuron::Sensor);
+        let idx = a.node_indices().filter(|n| matches!(a[*n], Neuron::Complement)).next().unwrap();
+        add_subtree(&a, idx, &mut b, s);
+        assert_eq!(b.node_count(), 2);
+        assert_eq!(b.edge_count(), 1);
+        // assert_eq!(format!("{:?}", Dot::with_config(&b, &[])), "");
+    }
+
+    #[test]
+    fn test_cross_subtree() {
+        let mut a = lessin::fig4_3();
+        let mut b = Graph::new();
+        let s = b.add_node(Neuron::Sensor);
+        let t = b.add_node(Neuron::Mult);
+        let _ = b.add_edge(s, t, ());
+        let idx = a.node_indices().filter(|n| matches!(a[*n], Neuron::Complement)).next().unwrap();
+        cross_subtree(&mut a, idx, &mut b, s);
+        assert_eq!(b.node_count(), 2);
+        assert_eq!(b.edge_count(), 1);
+        // assert_eq!(format!("{:?}", Dot::with_config(&b, &[])), "");
+        // assert_eq!(format!("{:?}", Dot::with_config(&a, &[])), "");
     }
 }

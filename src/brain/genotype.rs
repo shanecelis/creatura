@@ -265,6 +265,7 @@ impl Neuron {
                 .unwrap_or(0.0),
         }
     }
+
 }
 
 /// Order sensors first, inner nodes second, muscles last.
@@ -510,7 +511,7 @@ mod test {
 
     #[test]
     fn topo_sort() {
-        let graph = crate::brain::lessin::figure4_3();
+        let graph = crate::brain::lessin::fig4_3();
         let brain = Brain::new(graph).unwrap();
         let indices: Vec<usize> = brain.update.iter().map(|i| i.index()).collect();
         assert_eq!(indices, vec![0, 1, 2, 3, 6, 5, 4, 9, 8, 7]);
