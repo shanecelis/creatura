@@ -98,6 +98,7 @@ fn construct_creature(
         move |part, commands| {
             let id = cube_body(
                 part,
+                part.position,
                 pink,
                 density,
                 &mut meshes,
@@ -224,9 +225,9 @@ fn setup_env(
 }
 
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
-    let rest_length = (parent.part.from_local(parent.anchor_local)
-        - child.part.from_local(child.anchor_local))
-    .length();
+    let p_parent = parent.part.transform().transform_point(parent.anchor_local);
+    let p_child = child.part.transform().transform_point(child.anchor_local);
+    let rest_length = (p_parent - p_child).length();
     commands
         .spawn(
             DistanceJoint::new(parent.id, child.id)

@@ -37,7 +37,16 @@ impl Part {
         let v = self.extents;
         v.x * v.y * v.z
     }
+
+    pub fn transform(&self) -> Transform {
+        Transform {
+            translation: self.position,
+            rotation: self.rotation.into(),
+            scale: Vector::ONE,
+        }
+    }
 }
+
 
 /// Stamp info.
 pub struct StampInfo {
@@ -61,18 +70,13 @@ pub trait Surface {
 }
 
 /// A stampable is an object that can be "stamped" onto a surface (also
-/// `Stampable`). This means that it is moved so that its exterior is just
+/// `Stamp`). This means that it is moved so that its exterior is just
 /// touching the object it was stamped onto.
-pub trait Stampable: Surface {
-    /// Return object position.
-    fn position(&self) -> Vector3;
+pub trait Stamp: Surface {
+    // Return object position.
+    // fn position(&self) -> Vector3;
     /// Stamp object onto another, return the local vectors of each where they touch.
     fn stamp(&self, onto: &impl Surface, in_dir: Dir3) -> Option<StampInfo>;
-    /// Convert a world point to a local point.
-    fn to_local(&self, point: Vector3) -> Vector3;
-    #[allow(clippy::wrong_self_convention)]
-    /// Convert a local point to a world point.
-    fn from_local(&self, point: Vector3) -> Vector3;
 }
 
 impl Surface for Part {
@@ -94,25 +98,7 @@ impl Surface for Part {
     }
 }
 
-impl Stampable for Part {
-    fn position(&self) -> Vector3 {
-        self.position
-    }
-    fn to_local(&self, point: Vector3) -> Vector3 {
-        Mat4::from_scale_rotation_translation(Vector::ONE, self.rotation, self.position)
-            .inverse()
-            .transform_point(point)
-    }
-
-    fn from_local(&self, point: Vector3) -> Vector3 {
-        ColliderTransform {
-            translation: self.position,
-            rotation: self.rotation.into(),
-            scale: Vector::ONE,
-        }
-        .transform_point(point)
-    }
-
+impl Stamp for Part {
     fn stamp(&self, onto: &impl Surface, in_dir: Dir3) -> Option<StampInfo> {
         if let Some(p1) = onto.cast_to(-in_dir) {
             if let Some(p2) = self.cast_to(in_dir) {

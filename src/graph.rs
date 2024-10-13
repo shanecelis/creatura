@@ -420,6 +420,7 @@ pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
 
 pub fn cube_body(
     child: &Part,
+    position: Vec3,
     color: Color,
     density: f32,
     meshes: &mut Assets<Mesh>,
@@ -439,7 +440,7 @@ pub fn cube_body(
             },
             // RigidBody::Static,
             RigidBody::Dynamic,
-            Position(child.position()),
+            Position(position),
             MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
             // c,
             child.collider(),
