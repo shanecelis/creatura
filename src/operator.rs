@@ -8,24 +8,23 @@ use rand_distr::{Distribution, Normal, StandardNormal};
 use std::cmp::Ordering;
 use std::ops::AddAssign;
 
-pub trait Generator<R> {
-    type G;
+pub trait Generator<G,R> {
     /// Generate a genome.
-    fn generate(&self, rng: &mut R) -> Self::G;
+    fn generate(&self, rng: &mut R) -> G;
 
-    fn into_iter(self, rng: &mut R) -> impl Iterator<Item = Self::G>
+    fn into_iter(self, rng: &mut R) -> impl Iterator<Item = G>
     where
         Self: Sized,
     {
         std::iter::repeat_with(move || self.generate(rng))
     }
 
-    fn into_mutator<F>(self, f: F) -> impl Mutator<Self::G, R>
+    fn into_mutator<F>(self, f: F) -> impl Mutator<G, R>
     where
         Self: Sized,
-        F: Fn(Self::G, &mut Self::G),
+        F: Fn(G, &mut G),
     {
-        move |genome: &mut Self::G, rng: &mut R| {
+        move |genome: &mut G, rng: &mut R| {
             let generated = self.generate(rng);
             f(generated, genome);
             1
@@ -33,15 +32,27 @@ pub trait Generator<R> {
     }
 }
 
-impl<F, G, R> Generator<R> for F
+impl<F, G, R> Generator<G, R> for F
 where
-    F: Fn(&mut R) -> G,
-{
-    type G = G;
+    F: Fn(&mut R) -> G {
 
     fn generate(&self, rng: &mut R) -> G {
         self(rng)
     }
+}
+
+// pub trait Crosser<G, R> : Mutator<(G, G), R> {
+//     fn cross(&self, a: &mut G, b: &mut G, rng: &mut R) -> u32;
+
+//     fn mutate(&self, genome: &mut (G, G), rng: &mut R) -> u32 {
+//         self.cross(&mut genome.0, &mut genome.1, rng)
+//     }
+
+// }
+
+pub trait Crosser<G, R> {
+    /// Mutate the `genome` returning the number of mutations that occurred.
+    fn cross(&self, a: &mut G, b: &mut G, rng: &mut R) -> u32;
 }
 
 pub trait Mutator<G, R> {
@@ -96,7 +107,16 @@ where
     }
 }
 
-pub fn uniform_generator<T, R>(min: T, max: T) -> impl Generator<R, G = T>
+impl<F, G, R> Crosser<G, R> for F
+where
+    F: Fn(&mut G, &mut G, &mut R) -> u32,
+{
+    fn cross(&self, a: &mut G, b: &mut G, rng: &mut R) -> u32 {
+        self(a, b, rng)
+    }
+}
+
+pub fn uniform_generator<T, R>(min: T, max: T) -> impl Generator<T, R>
 where
     T: SampleUniform + PartialOrd + Copy,
     R: Rng,
@@ -104,7 +124,7 @@ where
     move |rng: &mut R| rng.gen_range(min..max)
 }
 
-pub fn normal_generator<T, R>(mean: T, stddev: T) -> Option<impl Generator<R, G = T>>
+pub fn normal_generator<T, R>(mean: T, stddev: T) -> Option<impl Generator<T, R>>
 where
     T: PartialOrd + Copy + rand_distr::num_traits::Float,
     StandardNormal: Distribution<T>,
@@ -134,6 +154,27 @@ where
 {
     normal_generator(mean, stddev)
         .map(|generator| generator.into_mutator(|generated, mutated| *mutated += generated))
+}
+
+pub fn swapper<G, R>() -> impl Crosser<G, R> where R: Rng {
+    |a: &mut G, b: &mut G, _rng: &mut R| {
+        std::mem::swap(a, b);
+        1
+    }
+}
+
+pub trait RngExt {
+    fn prob(&mut self) -> f32;
+    fn with_prob(&mut self, p: f32) -> bool;
+}
+
+impl<R: Rng> RngExt for R {
+    fn prob(&mut self) -> f32 {
+        self.sample(rand::distributions::Open01)
+    }
+    fn with_prob(&mut self, p: f32) -> bool {
+        p > self.prob()
+    }
 }
 
 pub fn rnd_prob<R>(rng: &mut R) -> f32

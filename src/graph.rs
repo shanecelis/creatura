@@ -2,7 +2,107 @@ use super::*;
 use crate::{rdfs::*, operator::*};
 use core::f32::consts::FRAC_PI_4;
 use petgraph::{graph::{DefaultIx, IndexType}, prelude::*, EdgeType};
-use rand::Rng;
+use weighted_rand::{
+    table::WalkerTable,
+    builder::{NewBuilder, WalkerTableBuilder},
+
+};
+use std::collections::HashMap;
+use rand::{Rng, rngs::StdRng, SeedableRng};
+
+fn rand_elem<T,R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T> where R: Rng {
+    let mut result = None;
+    let mut i = 1;
+    for item in iter {
+        if rng.with_prob(1.0 / (i as f32)) {
+            result = Some(item);
+            i += 1;
+        }
+    }
+    result
+}
+
+fn prune_subtree<N,E,Ty,Ix,R>(graph: &mut Graph<N,E,Ty,Ix>, start: NodeIndex<Ix>)
+where
+    Ty: EdgeType,
+    Ix: IndexType {
+
+    let mut dfs = Dfs::new(&*graph, start);
+    let _ = dfs.next(&*graph); // skip the start node.
+    while let Some(node) = dfs.next(&*graph) {
+        graph.remove_node(node);
+    }
+}
+
+fn add_subtree<N,E,Ty,Ix,R>(source: &Graph<N,E,Ty,Ix>, source_root: NodeIndex<Ix>, dest: &mut Graph<N,E,Ty,Ix>, dest_root: NodeIndex<Ix>)
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType {
+
+    let mut nodes = HashMap::new();
+    let mut dfs = Dfs::new(source, source_root);
+
+    let _ = dfs.next(source); // skip the start node.
+    nodes.insert(source_root, dest_root);
+    while let Some(src_idx) = dfs.next(source) {
+        let dst_idx = dest.add_node(source[src_idx].clone());
+        nodes.insert(src_idx, dst_idx);
+    }
+    // Go through edges of nodes.
+    // for node in nodes.keys() {
+        for edge in source.edge_references() {
+            if let Some((a, b)) = nodes.get(&edge.source()).zip(nodes.get(&edge.target())) {
+                dest.add_edge(*a, *b, edge.weight().clone());
+            }
+        }
+    // }
+}
+
+fn prune_connection<N,E,Ty,Ix,R>()
+                                 -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng {
+    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+        if let Some(edge) = rand_elem(graph.edge_indices(), rng) {
+            graph.remove_edge(edge);
+            return 1;
+        }
+        0
+    }
+}
+
+fn add_connection<N,E,Ty,Ix,R>(generator: impl Generator<E,R>)
+                               -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng {
+    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+        if let Some(a) = rand_elem(graph.node_indices(), rng) {
+            if let Some(b) = rand_elem(graph.node_indices(), rng) {
+                graph.add_edge(a, b, generator.generate(rng));
+                return 1;
+            }
+        }
+        0
+    }
+}
+
+fn add_node<N,E,Ty,Ix,R>(generator: impl Generator<N, R>)
+                         -> impl Mutator<Graph<N,E,Ty,Ix>,R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng {
+    move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
+        graph.add_node(generator.generate(rng));
+        1
+    }
+}
 
 fn mutate_nodes<N,E,Ty,Ix,R>(mutator: impl Mutator<N, R>, mutation_rate: f32)
                              -> impl Mutator<Graph<N,E,Ty,Ix>,R>
@@ -13,12 +113,37 @@ where
     move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
         let mut count = 0u32;
         for node in graph.node_weights_mut() {
-            if mutation_rate < rnd_prob(rng) {
+            if rng.with_prob(mutation_rate) {
                 mutator.mutate(node, rng);
                 count += 1;
             }
         }
         count
+    }
+}
+
+struct WeightedMutator<'a, G, R> {
+    mutators: Vec<&'a dyn Mutator<G,R>>,
+    table: WalkerTable,
+}
+
+impl<'a, G, R> WeightedMutator<'a, G, R> {
+
+    fn new<T>(mutators: Vec<&'a dyn Mutator<G, R>>, weights: &[T]) -> Self
+    where WalkerTableBuilder: NewBuilder<T> {
+        let builder = WalkerTableBuilder::new(&weights);
+        assert_eq!(mutators.len(), weights.len(), "Mutators and weights different lengths.");
+        Self {
+            table: builder.build(),
+            mutators,
+        }
+    }
+}
+
+impl<'a, G, R> Mutator<G,R> for WeightedMutator<'a, G, R> where R: Rng {
+
+    fn mutate(&self, genome: &mut G, rng: &mut R) -> u32 {
+        self.mutators[dbg!(self.table.next_rng(rng))].mutate(genome, rng)
     }
 }
 
@@ -31,7 +156,7 @@ where
     move |graph: &mut Graph<N,E,Ty,Ix>, rng: &mut R| {
         let mut count = 0u32;
         for edge in graph.edge_weights_mut() {
-            if mutation_rate < rnd_prob(rng) {
+            if rng.with_prob(mutation_rate) {
                 count += mutator.mutate(edge, rng);
             }
         }
@@ -290,5 +415,22 @@ mod test {
         let b = Quat::from_axis_angle(Vec3::X, PI / 2.0);
         let c = a * b.inverse();
         assert!(c.angle_between(b) < 0.01);
+    }
+
+    #[test]
+    fn weighted_mutator() {
+
+        let i = 2;
+        // for i in 0..100 {
+        let mut rng = StdRng::seed_from_u64(i);
+        let a = uniform_mutator(0.0, 1.0);
+        let b = uniform_mutator(2.0, 10.0);
+        let w = WeightedMutator::new(vec![&a, &b],
+                                     &[0.0, 1.0]);
+        let mut v = 0.1;
+        assert_eq!(w.mutate(&mut v, &mut rng), 1);
+            assert!(v > 2.0, "v {v} > 2.0, seed {i}");
+        // }
+
     }
 }

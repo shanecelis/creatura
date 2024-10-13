@@ -50,6 +50,12 @@ pub enum Neuron {
     AbsDiff,
 }
 
+impl From<NVec4> for Neuron {
+    fn from(v: NVec4) -> Neuron {
+        v.0.into()
+    }
+}
+
 impl From<Vec4> for Neuron {
     fn from(v: Vec4) -> Neuron {
         use Neuron::*;
@@ -77,6 +83,12 @@ impl From<Vec4> for Neuron {
                 todo!();
             }
         }
+    }
+}
+
+impl From<Neuron> for NVec4 {
+    fn from(n: Neuron) -> NVec4 {
+        NVec4(n.into())
     }
 }
 
