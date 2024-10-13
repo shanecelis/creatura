@@ -1,16 +1,16 @@
 use crate::{operator::*, Muscle, NervousSystem};
 use bevy::prelude::*;
 use petgraph::{
-    algo::{tarjan_scc, toposort, Cycle, DfsSpace},
+    algo::toposort,
     graph::DefaultIx,
     prelude::*,
     visit::{
-        GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers,
-        IntoNodeReferences, NodeIndexable, Visitable,
+        IntoEdgesDirected,
+        IntoNodeReferences,
     },
 };
 use rand::{
-    distributions::uniform::{SampleRange, SampleUniform},
+    distributions::uniform::SampleRange,
     Rng,
 };
 use std::cmp::Ordering;

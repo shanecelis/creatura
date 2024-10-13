@@ -2,16 +2,15 @@ use petgraph::{
     graph::IndexType,
     prelude::*,
     visit::{
-        EdgeIndexable, GraphBase, GraphRef, IntoEdgesDirected, IntoNeighbors, VisitMap, Visitable,
+        GraphBase, IntoEdgesDirected, Visitable,
     },
     EdgeType,
 };
 
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     marker::PhantomData,
-    ops::Index,
 };
 
 /// An recurrent depth first search (RDFS) of a graph.

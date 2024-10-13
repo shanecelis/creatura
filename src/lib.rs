@@ -1,7 +1,6 @@
 use crate::stamp::*;
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
-use nalgebra::{point, Isometry};
 pub mod brain;
 pub mod body;
 pub mod operator;

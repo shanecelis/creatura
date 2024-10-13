@@ -6,12 +6,13 @@ use petgraph::{
     prelude::*,
     EdgeType,
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::collections::HashMap;
 use weighted_rand::{
     builder::{NewBuilder, WalkerTableBuilder},
     table::WalkerTable,
 };
+
+use rand::Rng;
 
 fn rand_elem<T, R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T>
 where
@@ -459,7 +460,8 @@ pub fn cube_body(
 mod test {
     use super::*;
     use crate::brain::{lessin, Neuron};
-    use petgraph::dot::Dot;
+    use rand::{rngs::StdRng, SeedableRng};
+    // use petgraph::dot::Dot;
 
     #[test]
     fn test_cast_to() {

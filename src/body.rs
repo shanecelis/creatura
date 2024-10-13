@@ -1,13 +1,11 @@
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
-use nalgebra::{point, Isometry};
 use crate::stamp::*;
 use core::f32::consts::FRAC_PI_4;
 
 use petgraph::{
-    graph::{DefaultIx, IndexType},
+    graph::DefaultIx,
     prelude::*,
-    EdgeType,
 };
 
 #[derive(Clone, Debug, Copy)]

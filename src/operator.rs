@@ -1,11 +1,8 @@
-use crate::{Muscle, NervousSystem};
-use bevy::prelude::*;
 use rand::{
-    distributions::uniform::{SampleRange, SampleUniform},
+    distributions::uniform::SampleUniform,
     Rng,
 };
 use rand_distr::{Distribution, Normal, StandardNormal};
-use std::cmp::Ordering;
 use std::ops::AddAssign;
 
 pub trait Generator<G, R> {

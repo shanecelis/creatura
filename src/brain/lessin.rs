@@ -1,5 +1,5 @@
 use super::*;
-use petgraph::{algo::toposort, graph::DefaultIx, prelude::*, visit::IntoNodeReferences};
+use petgraph::prelude::*;
 
 /// Lessin, D. Evolved Virtual Creatures as Content: Increasing Behavioral and
 /// Morphological Complexity. (2015).
