@@ -2,7 +2,6 @@
 #![allow(unused_imports)]
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
-use nalgebra::{point, Isometry};
 
 /// Stamp info.
 pub struct StampInfo {

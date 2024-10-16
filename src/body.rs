@@ -1,7 +1,11 @@
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
-use crate::stamp::*;
+use crate::{
+    stamp::*,
+    operator::*,
+};
 use core::f32::consts::FRAC_PI_4;
+use rand::Rng;
 
 use petgraph::{
     graph::DefaultIx,
@@ -60,6 +64,8 @@ impl Default for Part {
             rotation: Quaternion::IDENTITY,
         }
     }
+
+
 }
 
 impl Part {
@@ -85,6 +91,42 @@ impl Part {
             scale: Vector::ONE,
         }
     }
+
+    fn generate<R>(rng: &mut R) -> Self where R: Rng {
+        let v = uniform_generator(0.1, 2.0);
+        let w = uniform_generator(0.0, TAU);
+        Part {
+            extents: Vec3::new(v.generate(rng),
+                               v.generate(rng),
+                               v.generate(rng)),
+            position: Vector3::ZERO,
+            rotation: Quat::from_euler(EulerRot::XYZ,
+                                       w.generate(rng),
+                                       w.generate(rng),
+                                       w.generate(rng))
+        }
+    }
+
+    fn mutate<R>(&mut self, rng: &mut R) -> u32 where R: Rng {
+        let v = uniform_mutator(-0.2, 0.2);
+        // let w = uniform_mutator(-FRAC_PI_4, FRAC_PI_4);
+        let mut count = 0;
+        count += v.mutate(&mut self.extents.x, rng);
+        count += v.mutate(&mut self.extents.y, rng);
+        count += v.mutate(&mut self.extents.z, rng);
+        let q = Quat::from_rng(rng);
+        self.rotation *= q;
+        4
+    }
+}
+
+fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Quat, R> {
+    move |rng: &mut R|
+    Quat::from_euler(EulerRot::XYZ,
+                     generator.generate(rng),
+                     generator.generate(rng),
+                     generator.generate(rng))
+
 }
 
 

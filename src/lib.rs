@@ -7,9 +7,6 @@ pub mod operator;
 mod repeat_visit_map;
 pub mod stamp;
 
-#[cfg(feature = "dsp")]
-mod dsp;
-
 pub mod graph;
 pub mod rdfs;
 //

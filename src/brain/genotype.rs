@@ -2,11 +2,7 @@ use crate::{operator::*, Muscle, NervousSystem};
 use bevy::prelude::*;
 use petgraph::{
     algo::toposort,
-    graph::DefaultIx,
     prelude::*,
-    visit::{
-        IntoNodeReferences,
-    },
 };
 use rand::{
     Rng,
@@ -289,12 +285,6 @@ impl Neuron {
     }
 }
 
-pub struct Brain {
-    graph: DiGraph<(Neuron, usize), ()>,
-    update: Vec<NodeIndex<DefaultIx>>,
-    storage: Vec<f32>,
-}
-
 #[derive(Component, Debug)]
 pub struct BitBrain {
     neurons: Vec<Neuron>,
@@ -429,42 +419,6 @@ where
     count
 }
 
-impl Brain {
-    fn new(graph: DiGraph<Neuron, ()>) -> Option<Brain> {
-        let count: u8 = graph.node_references().map(|(_i, n)| n.storage()).sum();
-        let mut g = graph.clone();
-        let mut cycles = vec![];
-        for edge in g.edge_references() {
-            if edge.source() == edge.target() {
-                cycles.push(edge.id());
-            }
-        }
-        for edge_id in cycles {
-            g.remove_edge(edge_id);
-        }
-        // TODO: This could still have cycles. We can find the strongly
-        // connected components (scc) and try to take one of the edges between
-        // the nodes out.
-        let mut update = toposort(&g, None).ok()?;
-        update.sort_by(|ai, bi| order_neurons(&g[*ai], ai.index(), &g[*bi], bi.index()));
-        let mut index = 0;
-
-        let mut brain = graph.map(|_i, n| (*n, 0), |_i, e| *e);
-
-        for i in &update {
-            let node = &mut brain[*i];
-            node.1 = index;
-            index += node.0.storage() as usize;
-        }
-
-        Some(Brain {
-            graph: brain,
-            update,
-            storage: vec![0.0; count.into()],
-        })
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -498,12 +452,9 @@ mod test {
     #[test]
     fn topo_sort() {
         let graph = crate::brain::lessin::fig4_3();
-        let brain = Brain::new(graph).unwrap();
-        let indices: Vec<usize> = brain.update.iter().map(|i| i.index()).collect();
-        assert_eq!(indices, vec![0, 1, 2, 3, 6, 5, 4, 9, 8, 7]);
-        let nodes: Vec<Neuron> = brain.update.iter().map(|i| brain.graph[*i].0).collect();
+        let brain = BitBrain::new(&graph).unwrap();
         assert_eq!(
-            nodes,
+            brain.neurons,
             vec![
                 Sensor,
                 Sensor,

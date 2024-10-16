@@ -5,10 +5,13 @@ use rand::{
 use rand_distr::{Distribution, Normal, StandardNormal};
 use std::ops::AddAssign;
 
+/// Generate a type `G` in association with type `R`, which is usually a random
+/// number generator.
 pub trait Generator<G, R> {
     /// Generate a genome.
     fn generate(&self, rng: &mut R) -> G;
 
+    /// Create an iterator of the given generator.
     fn into_iter(self, rng: &mut R) -> impl Iterator<Item = G>
     where
         Self: Sized,
@@ -16,6 +19,7 @@ pub trait Generator<G, R> {
         std::iter::repeat_with(move || self.generate(rng))
     }
 
+    /// Turn this generator into a mutator via the given closure.
     fn into_mutator<F>(self, f: F) -> impl Mutator<G, R>
     where
         Self: Sized,
@@ -47,22 +51,20 @@ where
 
 // }
 
+/// A crosser for type `G`. It crosses over two values of type `G`. This trait is
+/// associated with type `R`, which is typically a random number generator.
 pub trait Crosser<G, R> {
     /// Mutate the `genome` returning the number of mutations that occurred.
     fn cross(&self, a: &mut G, b: &mut G, rng: &mut R) -> u32;
 }
 
+/// A mutator for type `G` in association with type `R`, which is typically a
+/// random number generator.
 pub trait Mutator<G, R> {
     /// Mutate the `genome` returning the number of mutations that occurred.
     fn mutate(&self, genome: &mut G, rng: &mut R) -> u32;
 
-    // fn map<F,T>(self, f: F) -> impl Mutator<T, R> where Self: Sized,
-    //                                                     F: Fn(G) -> T {
-    //     move |genome: &mut G, rng: &mut R| {
-    //         f(self.mutate(genome, rng))
-    //     }
-    // }
-
+    /// Repeat this mutator a set number of times.
     fn repeat(self, repeat_count: usize) -> impl Mutator<G, R>
     where
         Self: Sized,
@@ -76,6 +78,7 @@ pub trait Mutator<G, R> {
         }
     }
 
+    /// Create a vector mutator. Mutates all entries.
     fn for_vec(self) -> impl Mutator<Vec<G>, R>
     where
         Self: Sized,
@@ -89,6 +92,8 @@ pub trait Mutator<G, R> {
         }
     }
 
+    /// Return a mutator that only applies itself with probability $p \in [0,
+    /// 1]$.
     fn with_prob(self, p: f32) -> impl Mutator<G, R>
     where
         Self: Sized,
@@ -112,7 +117,6 @@ impl<F, G, R> Mutator<G, R> for F
 where
     F: Fn(&mut G, &mut R) -> u32,
 {
-    // type G = G;
     fn mutate(&self, value: &mut G, rng: &mut R) -> u32 {
         self(value, rng)
     }
@@ -127,6 +131,7 @@ where
     }
 }
 
+/// Generate a uniform distribution $U ~ [min, max)$.
 pub fn uniform_generator<T, R>(min: T, max: T) -> impl Generator<T, R>
 where
     T: SampleUniform + PartialOrd + Copy,
@@ -135,6 +140,7 @@ where
     move |rng: &mut R| rng.gen_range(min..max)
 }
 
+/// Generate a normal distribution with the given $mean$ and $stddev$.
 pub fn normal_generator<T, R>(mean: T, stddev: T) -> Option<impl Generator<T, R>>
 where
     T: PartialOrd + Copy + rand_distr::num_traits::Float,
@@ -146,6 +152,7 @@ where
         .ok()
 }
 
+/// Add a value drawn from a uniform distribution $U ~ [min, max)$.
 pub fn uniform_mutator<T, R>(min: T, max: T) -> impl Mutator<T, R>
 where
     T: SampleUniform + PartialOrd + Copy + AddAssign<T>,
@@ -157,6 +164,8 @@ where
     }
 }
 
+/// Add a value drawn from a normal distribution with the given $mean$ and
+/// $stddev$.
 pub fn normal_mutator<T, R>(mean: T, stddev: T) -> Option<impl Mutator<T, R>>
 where
     T: PartialOrd + Copy + rand_distr::num_traits::Float + AddAssign<T>,
@@ -167,6 +176,7 @@ where
         .map(|generator| generator.into_mutator(|generated, mutated| *mutated += generated))
 }
 
+/// Swap the two genomes. Doesn't do much by itself but useful in composition.
 pub fn swapper<G, R>() -> impl Crosser<G, R>
 where
     R: Rng,
@@ -177,8 +187,11 @@ where
     }
 }
 
+/// Random number generator extensions.
 pub trait RngExt {
+    /// Return a probability (0, 1).
     fn prob(&mut self) -> f32;
+    /// Return true with a probability $p \in [0, 1]$.
     fn with_prob(&mut self, p: f32) -> bool;
 }
 
@@ -191,20 +204,13 @@ impl<R: Rng> RngExt for R {
     }
 }
 
-pub fn rnd_prob<R>(rng: &mut R) -> f32
-where
-    R: Rng,
-{
-    rng.sample(rand::distributions::Open01)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     #[test]
     fn test_generator() {
         let mut rng = rand::thread_rng();
-        let v: Vec<f32> = rnd_prob.into_iter(&mut rng).take(2).collect();
+        let v: Vec<f32> = RngExt::prob.into_iter(&mut rng).take(2).collect();
         assert!(v[0] > 0.0 && v[0] < 1.0);
         assert!(v[1] > 0.0 && v[1] < 1.0);
     }
