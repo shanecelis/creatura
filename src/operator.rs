@@ -5,6 +5,8 @@ use rand::{
 use rand_distr::{Distribution, Normal, StandardNormal};
 use std::ops::AddAssign;
 
+pub mod graph;
+
 /// Generate a type `G` in association with type `R`, which is usually a random
 /// number generator.
 pub trait Generator<G, R> {

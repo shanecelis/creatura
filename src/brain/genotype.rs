@@ -1,4 +1,4 @@
-use crate::{operator::*, Muscle, NervousSystem};
+use crate::{operator::{*, graph::*}, Muscle, NervousSystem};
 use bevy::prelude::*;
 use petgraph::{
     algo::toposort,
@@ -410,13 +410,20 @@ pub fn nvec4_brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u3
 where
     R: Rng,
 {
-    let m = NVec4::mutate_one; //.with_prob(0.1);
 
-    let mut count = 0;
-    for idx in graph.node_indices() {
-        count += m.mutate(&mut graph[idx], rng);
-    }
-    count
+    let m = NVec4::mutate_one; //.with_prob(0.1);
+    let nodes = mutate_all_nodes(m);
+    let edges = add_edge(|_r: &mut R| ());
+    let rm_edge = remove_edge;
+    let weighted = WeightedMutator::new(vec![&nodes,
+                                             &edges,
+                                             &rm_edge],
+                                        &[1,
+                                          1,
+                                          1]);
+
+    weighted.mutate(graph, rng)
+    // nodes.mutate(graph, rng)
 }
 
 #[cfg(test)]

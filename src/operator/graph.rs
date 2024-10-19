@@ -1,4 +1,4 @@
-
+//! Generic graph operators
 use super::*;
 use crate::{operator::*, rdfs::*, body::*};
 use core::f32::consts::FRAC_PI_4;
@@ -75,6 +75,7 @@ fn add_subtree<N, E, Ty, Ix>(
     }
 }
 
+/// Cross two random subtrees.
 pub fn tree_crosser<N, E, Ty, Ix, R>(
     a: &mut Graph<N, E, Ty, Ix>,
     b: &mut Graph<N, E, Ty, Ix>,
@@ -96,7 +97,7 @@ where
     0
 }
 
-pub fn cross_subtree<N, E, Ty, Ix>(
+fn cross_subtree<N, E, Ty, Ix>(
     source: &mut Graph<N, E, Ty, Ix>,
     source_root: NodeIndex<Ix>,
     dest: &mut Graph<N, E, Ty, Ix>,
@@ -120,40 +121,22 @@ pub fn cross_subtree<N, E, Ty, Ix>(
     }
 }
 
-fn prune_connection<N, E, Ty, Ix, R>() -> impl Mutator<Graph<N, E, Ty, Ix>, R>
+/// Remove a random edge if available.
+pub fn remove_edge<N, E, Ty, Ix, R>(graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R) -> u32
 where
     Ty: EdgeType,
     Ix: IndexType,
     R: Rng,
 {
-    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
-        if let Some(edge) = graph.edge_indices().choose(rng) {
-            graph.remove_edge(edge);
-            return 1;
-        }
+    if let Some(edge) = graph.edge_indices().choose(rng) {
+        graph.remove_edge(edge);
+        1
+    } else {
         0
     }
 }
 
-pub fn add_connection<N, E, Ty, Ix, R>(
-    generator: impl Generator<E, R>,
-) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
-where
-    Ty: EdgeType,
-    Ix: IndexType,
-    R: Rng,
-{
-    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
-        if let Some(a) = graph.node_indices().choose(rng) {
-            if let Some(b) = graph.node_indices().choose(rng) {
-                graph.add_edge(a, b, generator.generate(rng));
-                return 1;
-            }
-        }
-        0
-    }
-}
-
+/// Add a random node (no edges).
 pub fn add_node<N, E, Ty, Ix, R>(
     generator: impl Generator<N, R>,
 ) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
@@ -165,6 +148,27 @@ where
     move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         graph.add_node(generator.generate(rng));
         1
+    }
+}
+
+/// Generate an edge and add to two random nodes.
+pub fn add_edge<N, E, Ty, Ix, R>(
+    generator: impl Generator<E, R>,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
+        let a = graph.node_indices().choose(rng);
+        let b = graph.node_indices().choose(rng);
+        if let Some((i, j)) = a.zip(b) {
+            graph.add_edge(i, j, generator.generate(rng));
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -190,10 +194,34 @@ where
     }
 }
 
-/// Mutate a random node
-fn mutate_nodes<N, E, Ty, Ix, R>(
+/// Mutate one random node.
+pub fn mutate_one_node<N, E, Ty, Ix, R>(
     mutator: impl Mutator<N, R>,
-    mutation_rate: f32,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
+        if let Some(i) = graph.node_indices().choose(rng) {
+            let n = graph.node_weight_mut(i).unwrap();
+            mutator.mutate(n, rng)
+        } else {
+            0
+        }
+    }
+}
+
+/// Mutate all nodes.
+///
+/// To mutate nodes with a 10% certain probability:
+///
+/// ```ignore
+/// mutate_all_nodes(mutator.with_prob(0.1)); 
+/// ```
+pub fn mutate_all_nodes<N, E, Ty, Ix, R>(
+    mutator: impl Mutator<N, R>,
 ) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
@@ -203,10 +231,7 @@ where
     move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         let mut count = 0u32;
         for node in graph.node_weights_mut() {
-            if rng.with_prob(mutation_rate) {
-                mutator.mutate(node, rng);
-                count += 1;
-            }
+            count += mutator.mutate(node, rng);
         }
         count
     }
@@ -245,9 +270,33 @@ where
     }
 }
 
-pub fn mutate_edges<N, E, Ty, Ix, R>(
+/// Mutate one random edge.
+pub fn mutate_one_edge<N, E, Ty, Ix, R>(
     mutator: impl Mutator<E, R>,
-    mutation_rate: f32,
+) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    R: Rng,
+{
+    move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
+        if let Some(i) = graph.edge_indices().choose(rng) {
+            mutator.mutate(&mut graph[i], rng)
+        } else {
+            0
+        }
+    }
+}
+
+/// Mutate all the edges.
+///
+/// To mutate all edges with a 10% probability:
+///
+/// ```ignore
+/// mutate_all_edges(mutator.with_prob(0.1));
+/// ```
+pub fn mutate_all_edges<N, E, Ty, Ix, R>(
+    mutator: impl Mutator<E, R>,
 ) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
 where
     Ty: EdgeType,
@@ -257,9 +306,7 @@ where
     move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
         let mut count = 0u32;
         for edge in graph.edge_weights_mut() {
-            if rng.with_prob(mutation_rate) {
-                count += mutator.mutate(edge, rng);
-            }
+            count += mutator.mutate(edge, rng);
         }
         count
     }
@@ -268,6 +315,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use rand::{rngs::StdRng, SeedableRng};
+    use crate::brain::*;
 
     #[test]
     fn weighted_mutator() {
@@ -345,3 +394,4 @@ mod test {
         // assert_eq!(format!("{:?}", Dot::with_config(&b, &[])), "");
         // assert_eq!(format!("{:?}", Dot::with_config(&a, &[])), "");
     }
+}
