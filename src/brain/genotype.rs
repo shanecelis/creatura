@@ -9,6 +9,7 @@ use rand::{
 };
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
+use std::collections::VecDeque;
 
 const NEURON_VARIANT_COUNT: usize = 15;
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -224,7 +225,11 @@ pub fn bitbrain_update(
 }
 
 impl Neuron {
-    fn eval(&self, context: &Context, state: f32, inputs: &[f32]) -> f32 {
+    fn eval(&self,
+            context: &Context,
+            state: f32,
+            inputs: &[f32],
+            aux: Option<&mut VecDeque<f32>>) -> f32 {
         use Neuron::*;
         match self {
             Sensor => state,
@@ -252,7 +257,15 @@ impl Neuron {
                 .first()
                 .and_then(|f| (*f >= *t).then_some(inputs.iter().skip(1).sum::<f32>()))
                 .unwrap_or(0.0),
-            Delay(_count) => todo!("Delay"),
+            Delay(count) => {
+                let aux = aux.unwrap();
+                aux.push_back(inputs.iter().sum::<f32>());
+                if aux.len() >= *count as usize + 1 {
+                    aux.pop_front().unwrap_or(0.0)
+                } else {
+                    0.0
+                }
+            }
             AbsDiff => inputs
                 .first()
                 .map(|f| (f - inputs.iter().skip(1).sum::<f32>()).abs())
@@ -276,6 +289,15 @@ fn order_neurons(a: &Neuron, ai: usize, b: &Neuron, bi: usize) -> Ordering {
 }
 
 impl Neuron {
+
+    fn aux_storage(&self) -> Option<usize> {
+        use Neuron::*;
+        match self {
+            Delay(x) => Some(*x as usize),
+            _ => None,
+        }
+    }
+
     fn storage(&self) -> u8 {
         use Neuron::*;
         match self {
@@ -301,6 +323,7 @@ pub struct BitBrain {
     eval_count: usize,
     storage_a: Vec<f32>,
     storage_b: Vec<f32>,
+    aux: Vec<VecDeque<f32>>,
 }
 
 impl BitBrain {
@@ -335,9 +358,15 @@ impl BitBrain {
 
         let mut neurons: Vec<Neuron> = vec![];
         let mut code = vec![];
+        let mut aux = vec![];
         for node_index in &update {
             use petgraph::Direction::*;
-            neurons.push(graph[*node_index]);
+            let node = graph[*node_index];
+            if let Some(aux_size) = node.aux_storage() {
+                aux.push(VecDeque::new()); // TODO: Alloc with size
+            }
+
+            neurons.push(node);
             // This is implicit in its ordering.
             // code.push(i as u8);
             code.push(graph.edges_directed(*node_index, Incoming).count() as u8);
@@ -357,6 +386,7 @@ impl BitBrain {
             eval_count: 0,
             storage_a: vec![0.0; count],
             storage_b: vec![0.0; count],
+            aux,
         })
     }
 
@@ -388,6 +418,7 @@ impl BitBrain {
         let mut i: usize = 0;
         let mut scratch = vec![];
         let mut j = 0;
+        let mut m = 0;
         while i < self.code.len() {
             // let j = self.code[i] as usize;
             let neuron = self.neurons[j];
@@ -399,7 +430,13 @@ impl BitBrain {
                 scratch.push(self.read()[k]);
                 i += 1;
             }
-            self.write()[j] = neuron.eval(ctx, self.read()[j], &scratch);
+            self.write()[j] = neuron.eval(ctx, self.read()[j], &scratch,
+                                          neuron.aux_storage().map(|_|
+                                                                   {
+                                                                       let n = m;
+                                                                       m += 1;
+                                                                       &mut self.aux[n]
+                                                                   }));
             j += 1;
         }
         self.eval_count += 1;
@@ -410,8 +447,7 @@ pub fn nvec4_brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u3
 where
     R: Rng,
 {
-
-    let m = NVec4::mutate_one; //.with_prob(0.1);
+    let m = NVec4::mutate_one.with_prob(0.1);
     let nodes = mutate_all_nodes(m);
     let edges = add_edge(|_r: &mut R| ());
     let rm_edge = remove_edge;
@@ -421,7 +457,6 @@ where
                                         &[1,
                                           1,
                                           1]);
-
     weighted.mutate(graph, rng)
     // nodes.mutate(graph, rng)
 }
@@ -485,9 +520,21 @@ mod test {
     fn neuron_eval() {
         let ctx = Context { time: 0.0 };
         let inputs = [2.0, 1.0];
-        assert_eq!(Sensor.eval(&ctx, 1.0, &inputs), 1.0);
-        assert_eq!(Sum.eval(&ctx, 1.0, &inputs), 3.0);
-        assert_eq!(Diff.eval(&ctx, 1.0, &inputs), 1.0);
+        assert_eq!(Sensor.eval(&ctx, 1.0, &inputs, None), 1.0);
+        assert_eq!(Sum.eval(&ctx, 1.0, &inputs, None), 3.0);
+        assert_eq!(Diff.eval(&ctx, 1.0, &inputs, None), 1.0);
+    }
+
+    #[test]
+    fn delay_eval() {
+        let ctx = Context { time: 0.0 };
+        let delay = Delay(2);
+        let mut aux = VecDeque::new();
+        assert_eq!(delay.eval(&ctx, 0.0, &[1.0], Some(&mut aux)), 0.0);
+        assert_eq!(delay.eval(&ctx, 0.0, &[0.5], Some(&mut aux)), 0.0);
+        assert_eq!(delay.eval(&ctx, 0.0, &[0.0], Some(&mut aux)), 1.0);
+        assert_eq!(delay.eval(&ctx, 0.0, &[0.0], Some(&mut aux)), 0.5);
+        assert_eq!(delay.eval(&ctx, 0.0, &[0.0], Some(&mut aux)), 0.0);
     }
 
     #[test]
