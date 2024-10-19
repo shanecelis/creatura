@@ -12,6 +12,8 @@ use petgraph::{
     prelude::*,
 };
 
+use rand_distr::{Distribution, Standard};
+
 #[derive(Clone, Debug, Copy)]
 pub struct MuscleGene {
     pub parent: Quaternion,
@@ -92,7 +94,7 @@ impl Part {
         }
     }
 
-    fn generate<R>(rng: &mut R) -> Self where R: Rng {
+    pub fn generate<R>(rng: &mut R) -> Self where R: Rng {
         let v = uniform_generator(0.1, 2.0);
         let w = uniform_generator(0.0, TAU);
         Part {
@@ -107,7 +109,7 @@ impl Part {
         }
     }
 
-    fn mutate<R>(&mut self, rng: &mut R) -> u32 where R: Rng {
+    pub fn mutate<R>(&mut self, rng: &mut R) -> u32 where R: Rng {
         let v = uniform_mutator(-0.2, 0.2);
         // let w = uniform_mutator(-FRAC_PI_4, FRAC_PI_4);
         let mut count = 0;
@@ -116,11 +118,21 @@ impl Part {
         count += v.mutate(&mut self.extents.z, rng);
         let q = Quat::from_rng(rng);
         self.rotation *= q;
-        4
+        count += 1;
+        count
     }
 }
 
-fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Quat, R> {
+/// Convert a `FromRng` into a generator.
+pub fn into_generator<T, R>() -> impl Generator<T,R>
+    where
+    T: FromRng,
+    Standard: Distribution<T>,
+    R: Rng {
+    move |rng: &mut R| T::from_rng(rng)
+}
+
+pub fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Quat, R> {
     move |rng: &mut R|
     Quat::from_euler(EulerRot::XYZ,
                      generator.generate(rng),

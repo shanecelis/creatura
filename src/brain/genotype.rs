@@ -147,7 +147,7 @@ impl From<Vec4> for NVec4 {
 }
 
 impl NVec4 {
-    fn generate<R>(rnd: &mut R) -> Self
+    pub fn generate<R>(rnd: &mut R) -> Self
     where
         R: Rng,
     {
@@ -160,7 +160,7 @@ impl NVec4 {
         ))
     }
 
-    fn mutate_all<R>(gene: &mut Self, rnd: &mut R) -> u32
+    pub fn mutate_all<R>(gene: &mut Self, rnd: &mut R) -> u32
     where
         R: Rng,
     {
@@ -172,7 +172,7 @@ impl NVec4 {
         4
     }
 
-    fn mutate_one<R>(gene: &mut Self, rnd: &mut R) -> u32
+    pub fn mutate_one<R>(gene: &mut Self, rnd: &mut R) -> u32
     where
         R: Rng,
     {
@@ -248,7 +248,10 @@ impl Neuron {
                 .first()
                 .map(|f| f - inputs.iter().skip(1).sum::<f32>())
                 .unwrap_or(0.0),
-            Deriv { dir: _ } => todo!("Deriv"),
+            Deriv { dir: _ } => {
+                // todo!("Deriv")
+                0.0
+            },
             Threshold(t) => inputs
                 .first()
                 .and_then(|f| (*f >= *t).then_some(1.0))
@@ -362,7 +365,7 @@ impl BitBrain {
         for node_index in &update {
             use petgraph::Direction::*;
             let node = graph[*node_index];
-            if let Some(aux_size) = node.aux_storage() {
+            if let Some(_aux_size) = node.aux_storage() {
                 aux.push(VecDeque::new()); // TODO: Alloc with size
             }
 
@@ -443,7 +446,7 @@ impl BitBrain {
     }
 }
 
-pub fn nvec4_brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u32
+pub fn brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u32
 where
     R: Rng,
 {
@@ -459,6 +462,17 @@ where
                                           1]);
     weighted.mutate(graph, rng)
     // nodes.mutate(graph, rng)
+}
+
+pub fn brain_generator<R>(rng: &mut R) -> DiGraph<NVec4, ()>
+where
+    R: Rng,
+{
+    let mut g = DiGraph::new();
+    let m = NVec4::generate;
+    let n = add_connecting_node(m, move |_r: &mut R| ()).repeat(5);
+    n.mutate(&mut g, rng);
+    g
 }
 
 #[cfg(test)]

@@ -33,6 +33,7 @@ where
     v
 }
 
+#[allow(dead_code)]
 fn prune_subtree<N, E, Ty, Ix>(graph: &mut Graph<N, E, Ty, Ix>, start: NodeIndex<Ix>)
 where
     Ty: EdgeType,
@@ -171,7 +172,7 @@ where
 }
 
 /// Add a node and connect it to a distinct random node.
-pub fn add_connected_node<N, E, Ty, Ix, R>(
+pub fn add_connecting_node<N, E, Ty, Ix, R>(
     node_generator: impl Generator<N, R>,
     edge_generator: impl Generator<E, R>,
 ) -> impl Mutator<Graph<N, E, Ty, Ix>, R>
@@ -186,7 +187,7 @@ where
             graph.add_edge(i, j, edge_generator.generate(rng));
             2
         } else {
-            let i = graph.add_node(node_generator.generate(rng));
+            let _ = graph.add_node(node_generator.generate(rng));
             1
         }
     }

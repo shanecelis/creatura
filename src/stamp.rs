@@ -16,6 +16,7 @@ pub struct StampInfo {
     pub surface_anchor: Vector3,
 }
 
+/// A surface can be stamped on.
 pub trait Surface {
     /// Return object orientation.
     fn rotation(&self) -> Quaternion;

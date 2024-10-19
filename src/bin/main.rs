@@ -154,7 +154,7 @@ fn mutate_on_space(
         let mut rng = rand::thread_rng();
         let (mut brain, mut genotype) = query.single_mut();
         let mut g = genotype.0.clone();
-        let count = nvec4_brain_mutator.mutate(&mut g, &mut rng);
+        let count = brain_mutator.mutate(&mut g, &mut rng);
 
         let h: DiGraph<Neuron, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
         genotype.0 = g;
@@ -164,6 +164,22 @@ fn mutate_on_space(
             info!("brain {count} mutated; brain replaced.");
         } else {
             warn!("brain {count} mutated; brain NOT replaced.");
+        }
+    }
+
+    if input.just_pressed(KeyCode::Enter) {
+        let mut rng = rand::thread_rng();
+        let (mut brain, mut genotype) = query.single_mut();
+        let g = brain_generator.generate(&mut rng);
+
+        let h: DiGraph<Neuron, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
+        genotype.0 = g;
+
+        if let Some(new_brain) = BitBrain::new(&h) {
+            *brain = new_brain;
+            info!("brain generated; brain replaced.");
+        } else {
+            warn!("brain generated; brain NOT replaced.");
         }
     }
 }

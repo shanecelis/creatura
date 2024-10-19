@@ -2,11 +2,9 @@ use super::*;
 use crate::{rdfs::*, body::*};
 use core::f32::consts::FRAC_PI_4;
 use petgraph::{
-    graph::{DefaultIx, IndexType},
+    graph::{DefaultIx},
     prelude::*,
 };
-use weighted_rand::builder::NewBuilder;
-
 
 #[derive(Clone, Copy, Debug)]
 pub enum ConstructError {}
