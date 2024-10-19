@@ -260,7 +260,7 @@ impl Neuron {
             Delay(count) => {
                 let aux = aux.unwrap();
                 aux.push_back(inputs.iter().sum::<f32>());
-                if aux.len() >= *count as usize + 1 {
+                if aux.len() > *count as usize {
                     aux.pop_front().unwrap_or(0.0)
                 } else {
                     0.0

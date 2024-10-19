@@ -1,9 +1,7 @@
 //! Generic graph operators
 use super::*;
-use crate::{operator::*, rdfs::*, body::*};
-use core::f32::consts::FRAC_PI_4;
 use petgraph::{
-    graph::{DefaultIx, IndexType},
+    graph::IndexType,
     prelude::*,
     EdgeType,
 };

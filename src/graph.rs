@@ -1,21 +1,12 @@
 use super::*;
-use crate::{operator::*, rdfs::*, body::*};
+use crate::{rdfs::*, body::*};
 use core::f32::consts::FRAC_PI_4;
 use petgraph::{
     graph::{DefaultIx, IndexType},
     prelude::*,
-    EdgeType,
 };
-use std::collections::HashMap;
-use weighted_rand::{
-    builder::{NewBuilder, WalkerTableBuilder},
-    table::WalkerTable,
-};
+use weighted_rand::builder::NewBuilder;
 
-use rand::{
-    Rng,
-    seq::IteratorRandom,
-};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ConstructError {}
@@ -223,8 +214,8 @@ pub fn cube_body(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::brain::{lessin, Neuron};
-    use rand::{rngs::StdRng, SeedableRng};
+    
+    
     // use petgraph::dot::Dot;
 
     #[test]
