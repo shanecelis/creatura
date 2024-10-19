@@ -11,5 +11,6 @@ I like this one but it also looks like "var else" which may be misleading.
 * 
 
 ## Task
-* Exercise new brain simulator
-* Write mutator for graph [MutationOp](https://docs.rs/genevo/latest/genevo/operator/trait.MutationOp.html)
+- [x] Exercise new brain simulator
+- [ ] Write mutator for brain graph
+- [ ] write mutator for body graph
