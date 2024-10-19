@@ -12,22 +12,10 @@ use weighted_rand::{
     table::WalkerTable,
 };
 
-use rand::Rng;
-
-fn rand_elem<T, R>(iter: impl Iterator<Item = T>, rng: &mut R) -> Option<T>
-where
-    R: Rng,
-{
-    let mut result = None;
-    let mut i = 1;
-    for item in iter {
-        if rng.with_prob(1.0 / (i as f32)) {
-            result = Some(item);
-            i += 1;
-        }
-    }
-    result
-}
+use rand::{
+    Rng,
+    seq::IteratorRandom,
+};
 
 fn nodes_of_subtree<N, E, Ty, Ix>(
     graph: &mut Graph<N, E, Ty, Ix>,
@@ -98,8 +86,8 @@ where
     Ty: EdgeType,
     Ix: IndexType,
 {
-    if let Some(x) = rand_elem(a.node_indices(), rng) {
-        if let Some(y) = rand_elem(b.node_indices(), rng) {
+    if let Some(x) = a.node_indices().choose(rng) {
+        if let Some(y) = b.node_indices().choose(rng) {
             cross_subtree(a, x, b, y);
             return 2;
         }
@@ -138,7 +126,7 @@ where
     R: Rng,
 {
     move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
-        if let Some(edge) = rand_elem(graph.edge_indices(), rng) {
+        if let Some(edge) = graph.edge_indices().choose(rng) {
             graph.remove_edge(edge);
             return 1;
         }
@@ -155,8 +143,8 @@ where
     R: Rng,
 {
     move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
-        if let Some(a) = rand_elem(graph.node_indices(), rng) {
-            if let Some(b) = rand_elem(graph.node_indices(), rng) {
+        if let Some(a) = graph.node_indices().choose(rng) {
+            if let Some(b) = graph.node_indices().choose(rng) {
                 graph.add_edge(a, b, generator.generate(rng));
                 return 1;
             }
