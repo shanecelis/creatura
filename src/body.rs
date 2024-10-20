@@ -2,7 +2,7 @@ use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use crate::{
     stamp::*,
-    operator::*,
+    operator::{*, graph::*},
 };
 use core::f32::consts::FRAC_PI_4;
 use rand::Rng;
@@ -21,36 +21,35 @@ pub struct MuscleGene {
     pub max_strength: f32,
 }
 
+impl MuscleGene {
+    fn generate<R>(rng: &mut R) -> MuscleGene
+    where R: Rng {
+        Self {
+            parent: Quat::from_rng(rng),
+            child: Quat::from_rng(rng),
+            max_strength: rng.gen_range(0.1..2.0),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Copy)]
 pub enum EdgeOp {
     /// Relfect the edge through a plane
-    Reflect { normal: Vector3 },
+    Reflect { normal: Dir3 },
     /// Use a radial symmetry with a rotation normal.
-    Radial { normal: Vector3, symmetry: u8 },
+    Radial { normal: Dir3, symmetry: u8 },
 }
 
-// impl EdgeOp {
-//     pub fn generate<R: Rng>(rng: &mut R) -> EdgeOp {
-
-//         if rng.with_prob(0.5) {
-//             EdgeOp::Reflect {
-//         } else {
-//         }
-//     }
-
-// }
-
-// impl<T,R> Generator<T,R> for T
-// where
-//     Standard: Distribution<T>,
-//     T: FromRng,
-//     R: Rng {
-//     fn generate(rng: &mut R) -> T {
-//         T::from_rng(rng)
-//     }
-// }
-
-
+impl EdgeOp {
+    pub fn generate<R: Rng>(rng: &mut R) -> EdgeOp {
+        if rng.with_prob(0.5) {
+            EdgeOp::Reflect { normal: Dir3::from_rng(rng) }
+        } else {
+            EdgeOp::Radial { normal: Dir3::from_rng(rng),
+                             symmetry: rng.gen_range(1..=8) }
+        }
+    }
+}
 
 impl Default for MuscleGene {
     fn default() -> Self {
@@ -76,16 +75,16 @@ pub struct PartEdge {
 
 impl PartEdge {
     fn generate<R: Rng>(rng: &mut R) -> PartEdge {
-        // let s = to_vec3(uniform_generator(0.1, 1.2));
-        todo!();
-        // Self {
-        //     joint_rotation: Quat::from_rng(rng),
-        //     rotation: Quat::from_rng(rng),
-        //     scale: s.generate(rng),
-        //     iteration_count: uniform_generator(1, 5).generate(rng)
-
-        // }
-
+        let s = to_vec3(uniform_generator(0.1, 1.2));
+        let m = rng.gen_range(0..3);
+        Self {
+            joint_rotation: Quat::from_rng(rng),
+            rotation: Quat::from_rng(rng),
+            scale: s.generate(rng),
+            iteration_count: uniform_generator(1, 5).generate(rng),
+            op: rng.with_prob(0.2).then_some(EdgeOp::generate(rng)),
+            muscles: MuscleGene::generate.into_iter(rng).take(m).collect(),
+        }
     }
 }
 
@@ -234,7 +233,7 @@ impl Stamp for Part {
     }
 }
 
-pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<DefaultIx>) {
+pub fn snake_graph(part_count: u8) -> BodyGenotype {
     let part = Part {
         extents: Vector::new(1., 1., 1.),
         position: Vector::ZERO,
@@ -258,21 +257,25 @@ pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<Defaul
             }],
         },
     );
-    (graph, index)
+    BodyGenotype { graph, start: index }
 }
 
-
 pub struct BodyGenotype {
-    graph: DiGraph<Part, PartEdge>,
-    start: NodeIndex<DefaultIx>,
+    pub graph: DiGraph<Part, PartEdge>,
+    pub start: NodeIndex<DefaultIx>,
 }
 
 impl BodyGenotype {
     pub fn generate<R>(rng: &mut R) -> Self where R: Rng {
         let mut graph = DiGraph::new();
         let node_gen = Part::generate;
+        let edge_gen = PartEdge::generate;
         let start = graph.add_node(node_gen.generate(rng));
+        let add_nodes = add_connecting_node(node_gen, edge_gen).repeat(5);
+        let count = add_nodes.mutate(&mut graph, rng);
+        info!("Generate body genotype with {count} mutations.");
 
+        println!("{:?}", petgraph::dot::Dot::with_config(&graph, &[]));
         BodyGenotype {
             graph,
             start

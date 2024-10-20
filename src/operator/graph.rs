@@ -182,8 +182,8 @@ where
     R: Rng,
 {
     move |graph: &mut Graph<N, E, Ty, Ix>, rng: &mut R| {
-        if let Some(j) = graph.node_indices().choose(rng) {
-            let i = graph.add_node(node_generator.generate(rng));
+        if let Some(i) = graph.node_indices().choose(rng) {
+            let j = graph.add_node(node_generator.generate(rng));
             graph.add_edge(i, j, edge_generator.generate(rng));
             2
         } else {

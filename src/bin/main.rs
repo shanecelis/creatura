@@ -8,6 +8,7 @@ use bevy::{
 
 use creatura::{body::*, brain::*, graph::*, operator::*, *};
 use petgraph::prelude::*;
+use rand::thread_rng;
 
 fn main() {
     let mut app = App::new();
@@ -87,13 +88,15 @@ fn construct_creature(
 ) {
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
-    let (genotype, root) = snake_graph(3);
+    let mut rng = thread_rng();
+    // let genotype = snake_graph(3);
+    let genotype = BodyGenotype::generate(&mut rng);
     let mut is_root = true;
     let mut root_id = None;
     let mut muscles = vec![];
     let entities: Vec<Entity> = construct_phenotype(
-        &genotype,
-        root,
+        &genotype.graph,
+        genotype.start,
         BuildState::default(),
         Vector3::Y,
         Vector3::X,
@@ -286,180 +289,3 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
         .id()
 }
 
-// fn setup(
-//     mut commands: Commands,
-//     mut meshes: ResMut<Assets<Mesh>>,
-//     mut materials: ResMut<Assets<StandardMaterial>>,
-// ) {
-//     let mut rng = rand::thread_rng();
-//     let ground_color = Color::srgb_u8(226, 199, 184);
-//     // Ground
-//     commands.spawn((
-//         PbrBundle {
-//             mesh: meshes.add(Cuboid::new(10., 0.1, 10.)),
-//             material: materials.add(ground_color),
-//             ..default()
-//         },
-//         CollisionLayers::new(
-//             [Layer::Ground],
-//             [Layer::Part, Layer::PartEven, Layer::PartOdd],
-//         ),
-//         RigidBody::Static,
-//         Collider::cuboid(10., 0.1, 10.),
-//     ));
-
-//     let mut parent = Part {
-//         extents: Vector::new(1., 1., 1.),
-//         position: Vector::Y,
-//         rotation: Quaternion::IDENTITY,
-//     };
-//     let pinks = [Color::srgb_u8(253, 53, 176)];
-
-//     // Root cube
-//     let color: Color = *pinks.choose(&mut rng).unwrap();
-//     let mut parent_cube = commands
-//         .spawn((
-//             PbrBundle {
-//                 mesh: meshes.add(Mesh::from(parent.shape())),
-//                 material: materials.add(color),
-//                 ..default()
-//             },
-//             // RigidBody::Static,
-//             RigidBody::Dynamic,
-//             Rotation(parent.rotation()),
-//             Position(parent.position()),
-//             parent.collider(),
-//             CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven]),
-//         ))
-//         .id();
-
-//     let density = 1.0;
-//     let scaling = 0.6;
-//     let mut muscles = vec![];
-//     for (i, (child, (p1, p2))) in make_snake(3, scaling, &parent).into_iter().enumerate() {
-//         let color: Color = *pinks.choose(&mut rng).unwrap();
-//         let child_cube = commands
-//             .spawn((
-//                 PbrBundle {
-//                     mesh: meshes.add(Mesh::from(child.shape())),
-//                     material: materials.add(StandardMaterial {
-//                         base_color: color,
-//                         // emissive: Color::WHITE.into(),
-//                         ..default()
-//                     }),
-//                     ..default()
-//                 },
-//                 // RigidBody::Static,
-//                 RigidBody::Dynamic,
-//                 Position(child.position()),
-//                 MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
-//                 // c,
-//                 child.collider(),
-//                 if (i + 1) % 2 == 0 {
-//                     CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven])
-//                 } else {
-//                     CollisionLayers::new([Layer::PartOdd], [Layer::Ground, Layer::PartOdd])
-//                 },
-//             ))
-//             .id();
-
-//         // commands.spawn(
-//         //     RevoluteJoint::new(parent_cube, child_cube)
-//         //         .with_local_anchor_1(p1)
-//         //         .with_local_anchor_2(p2)
-//         //         .with_aligned_axis(Vector::Z)
-//         //         .with_angle_limits(-FRAC_PI_3, FRAC_PI_3), // .with_linear_velocity_damping(0.1)
-//         //                                                    // .with_angular_velocity_damping(1.0)
-//         //                                                    // .with_compliance(1.0 / 1000.0),
-//         // );
-//         commands.spawn(
-//             {
-//                 let mut j = SphericalJoint::new(parent_cube, child_cube)
-//                     // .with_swing_axis(Vector::Y)
-//                     // .with_twist_axis(Vector::X)
-//                     .with_local_anchor_1(p1)
-//                     .with_local_anchor_2(p2)
-//                     // .with_aligned_axis(Vector::Z)
-//                     .with_swing_limits(-FRAC_PI_4, FRAC_PI_4) // .with_linear_velocity_damping(0.1)
-//                     .with_twist_limits(-FRAC_PI_4, FRAC_PI_4); // .with_linear_velocity_damping(0.1)
-//                 j.swing_axis = Vector::Y;
-//                 j.twist_axis = Vector::X;
-//                 j
-//             },
-//         );
-//         let a1 = parent.extents * Vector::new(0.5, 0.5, 0.0);
-//         let a2 = child.extents * Vector::new(0.5, 0.5, 0.0);
-
-//         let rest_length = (parent.from_local(a1) - child.from_local(a2)).length();
-
-//         let muscle_id = commands
-//             .spawn(
-//                 DistanceJoint::new(parent_cube, child_cube)
-//                     .with_local_anchor_1(a1)
-//                     .with_local_anchor_2(a2)
-//                     .with_rest_length(rest_length)
-//                     // .with_limits(rest_length, rest_length)
-//                     // .with_linear_velocity_damping(0.1)
-//                     // .with_angular_velocity_damping(1.0)
-//                     .with_compliance(1.0 / 100.0),
-//             )
-//             .insert(
-//                 // MuscleUnit {
-//                 //     // iter: dsp_sources.add(dsp)
-//                 //     // iter: dsp.into_iter()
-//                 //     unit: Box::new({ let mut unit = white_noise_mono();
-//                 //                      unit.set_sample_rate(1000.0);
-//                 //                      unit}),
-//                 //     min: rest_length * length_scale,
-//                 //     max: rest_length * (1.0 + length_scale),
-//                 // }
-
-//                 // SpringOscillator {
-//                 //     freq: 1.0,
-//                 //     min: rest_length * length_scale,
-//                 //     max: rest_length * (1.0 + length_scale),
-//                 // },
-//                 Muscle::default(),
-//             )
-//             .insert(MuscleRange {
-//                 min: 0.0,
-//                 max: rest_length * 2.0,
-//             })
-//             .id();
-//         muscles.push(muscle_id);
-//         parent = child;
-//         parent_cube = child_cube;
-//     }
-//     commands.spawn((
-//         NervousSystem {
-//             muscles,
-//             sensors: vec![],
-//         },
-//         // KeyboardBrain,
-//         // SpringOscillator {
-//         //     freq: 0.5,
-//         //     phase: 0.0,
-//         // },
-//         OscillatorBrain {
-//             oscillators: vec![
-//                 SpringOscillator {
-//                     freq: 0.5,
-//                     phase: 0.0,
-//                 },
-//                 SpringOscillator {
-//                     freq: 0.5,
-//                     phase: 0.2,
-//                 },
-//                 SpringOscillator {
-//                     freq: 0.5,
-//                     phase: 0.4,
-//                 },
-//                 SpringOscillator {
-//                     freq: 0.5,
-//                     phase: 0.6,
-//                 },
-//             ],
-//         },
-//     ));
-
-// }
