@@ -34,7 +34,8 @@ fn main() {
     .insert_resource(ClearColor(blue))
     .add_systems(Startup, setup_env)
     .add_systems(Startup, construct_creature)
-    .add_systems(Update, mutate_on_space)
+    .add_systems(Update, (mutate_on_space,
+delete_on_backspace))
     .add_plugins(PanOrbitCameraPlugin)
     //
     .add_systems(
@@ -76,6 +77,9 @@ fn handle_pickup_input(
 #[derive(Component)]
 struct RootBody;
 
+#[derive(Component)]
+struct Creature(Vec<Entity>);
+
 fn construct_creature(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -85,8 +89,9 @@ fn construct_creature(
     let density = 1.0;
     let (genotype, root) = snake_graph(3);
     let mut is_root = true;
+    let mut root_id = None;
     let mut muscles = vec![];
-    for _entity in construct_phenotype(
+    let entities: Vec<Entity> = construct_phenotype(
         &genotype,
         root,
         BuildState::default(),
@@ -107,7 +112,7 @@ fn construct_creature(
             if is_root {
                 commands.entity(id).insert(RootBody);
                 is_root = false;
-                // root_id = Some(id);
+                root_id = Some(id);
             }
             Some(id)
         },
@@ -120,8 +125,11 @@ fn construct_creature(
             })
         },
     )
-    .expect("creature")
-    {}
+    .expect("creature").into_iter()
+                       //.filter(|x| root_id.map(|y| y != *x).unwrap_or(true))
+                       .collect();
+
+    commands.spawn(Creature(entities));
 
     let mut g = DiGraph::new();
     let a = g.add_node(Neuron::Sin {
@@ -144,6 +152,21 @@ fn construct_creature(
         brain,
         Genotype(genotype),
     ));
+}
+
+fn delete_on_backspace(
+    mut query: Query<(Entity, &Creature)>,
+    mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    if input.just_pressed(KeyCode::Backspace) {
+        if let Ok((id, creature)) = query.get_single() {
+            for id in &creature.0 {
+                commands.entity(*id).despawn_recursive();
+            }
+            commands.entity(id).despawn_recursive();
+        }
+    }
 }
 
 fn mutate_on_space(

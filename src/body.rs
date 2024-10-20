@@ -29,6 +29,29 @@ pub enum EdgeOp {
     Radial { normal: Vector3, symmetry: u8 },
 }
 
+// impl EdgeOp {
+//     pub fn generate<R: Rng>(rng: &mut R) -> EdgeOp {
+
+//         if rng.with_prob(0.5) {
+//             EdgeOp::Reflect {
+//         } else {
+//         }
+//     }
+
+// }
+
+// impl<T,R> Generator<T,R> for T
+// where
+//     Standard: Distribution<T>,
+//     T: FromRng,
+//     R: Rng {
+//     fn generate(rng: &mut R) -> T {
+//         T::from_rng(rng)
+//     }
+// }
+
+
+
 impl Default for MuscleGene {
     fn default() -> Self {
         Self {
@@ -51,6 +74,21 @@ pub struct PartEdge {
     pub muscles: Vec<MuscleGene>,
 }
 
+impl PartEdge {
+    fn generate<R: Rng>(rng: &mut R) -> PartEdge {
+        // let s = to_vec3(uniform_generator(0.1, 1.2));
+        todo!();
+        // Self {
+        //     joint_rotation: Quat::from_rng(rng),
+        //     rotation: Quat::from_rng(rng),
+        //     scale: s.generate(rng),
+        //     iteration_count: uniform_generator(1, 5).generate(rng)
+
+        // }
+
+    }
+}
+
 #[derive(Clone, Debug, Copy)]
 pub struct Part {
     pub extents: Vector3,
@@ -66,8 +104,6 @@ impl Default for Part {
             rotation: Quaternion::IDENTITY,
         }
     }
-
-
 }
 
 impl Part {
@@ -94,7 +130,7 @@ impl Part {
         }
     }
 
-    pub fn generate<R>(rng: &mut R) -> Self where R: Rng {
+    pub fn generate<R>(rng: &mut R) -> Part where R: Rng {
         let v = uniform_generator(0.1, 2.0);
         let w = uniform_generator(0.0, TAU);
         Part {
@@ -123,13 +159,21 @@ impl Part {
     }
 }
 
-/// Convert a `FromRng` into a generator.
+
+/// Convert a `FromRng` into a `Generator`.
 pub fn into_generator<T, R>() -> impl Generator<T,R>
     where
     T: FromRng,
     Standard: Distribution<T>,
     R: Rng {
     move |rng: &mut R| T::from_rng(rng)
+}
+
+pub fn to_vec3<R>(v: impl Generator<f32, R>) -> impl Generator<Vec3, R> {
+    move |rng: &mut R|
+    Vec3::new(v.generate(rng),
+              v.generate(rng),
+              v.generate(rng))
 }
 
 pub fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Quat, R> {
@@ -141,6 +185,19 @@ pub fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Qu
 
 }
 
+// impl<R,S,T> From<Generator<f32, R>> for Generator<Vec3, R>
+// where
+//     R: Rng,
+//     Self: Sized,
+//     Generator<f32, R>: Sized,
+// {
+//     fn from(v: Generator<f32, R>) -> Self {
+//         move |rng: &mut R|
+//         Vec3::new(v.generate(rng),
+//                   v.generate(rng),
+//                   v.generate(rng))
+//     }
+// }
 
 impl Surface for Part {
     fn rotation(&self) -> Quaternion {
@@ -202,4 +259,23 @@ pub fn snake_graph(part_count: u8) -> (DiGraph<Part, PartEdge>, NodeIndex<Defaul
         },
     );
     (graph, index)
+}
+
+
+pub struct BodyGenotype {
+    graph: DiGraph<Part, PartEdge>,
+    start: NodeIndex<DefaultIx>,
+}
+
+impl BodyGenotype {
+    pub fn generate<R>(rng: &mut R) -> Self where R: Rng {
+        let mut graph = DiGraph::new();
+        let node_gen = Part::generate;
+        let start = graph.add_node(node_gen.generate(rng));
+
+        BodyGenotype {
+            graph,
+            start
+        }
+    }
 }

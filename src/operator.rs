@@ -50,7 +50,6 @@ where
 //     fn mutate(&self, genome: &mut (G, G), rng: &mut R) -> u32 {
 //         self.cross(&mut genome.0, &mut genome.1, rng)
 //     }
-
 // }
 
 /// A crosser for type `G`. It crosses over two values of type `G`. This trait is
@@ -97,7 +96,7 @@ pub trait Mutator<G, R> {
     /// Return a mutator that only applies itself with probability $p \in [0,
     /// 1]$.
     fn with_prob(self, p: f32) -> impl Mutator<G, R>
-    where
+        where
         Self: Sized,
         R: Rng,
     {
@@ -201,6 +200,7 @@ impl<R: Rng> RngExt for R {
     fn prob(&mut self) -> f32 {
         self.sample(rand::distributions::Open01)
     }
+
     fn with_prob(&mut self, p: f32) -> bool {
         p > self.prob()
     }
