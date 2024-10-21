@@ -12,5 +12,11 @@ I like this one but it also looks like "var else" which may be misleading.
 
 ## Task
 - [x] Exercise new brain simulator
-- [ ] Write mutator for brain graph
-- [ ] write mutator for body graph
+- [x] Write generator for brain graph
+- [x] Write mutator for brain graph
+- [x] Write generator for body graph
+- [ ] Write mutator for body
+- [ ] Body sets sensors and muscles for brain
+- [ ] Brain shouldn't touch sensors or muscles
+- [ ] OR, brains with fewer sensors or muscles should be tossed
+     

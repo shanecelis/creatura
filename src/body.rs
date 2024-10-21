@@ -2,6 +2,7 @@ use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use crate::{
     stamp::*,
+    brain::Neuron,
     operator::{*, graph::*},
 };
 use core::f32::consts::FRAC_PI_4;
@@ -280,5 +281,13 @@ impl BodyGenotype {
             graph,
             start
         }
+    }
+
+    pub fn sensor_count(&self) -> usize {
+        0
+    }
+
+    pub fn muscle_count(&self) -> usize {
+        self.graph.edge_weights().map(|w| w.muscles.len()).sum()
     }
 }

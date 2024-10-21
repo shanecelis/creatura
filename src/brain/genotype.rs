@@ -165,11 +165,12 @@ impl NVec4 {
         R: Rng,
     {
         let m = uniform_mutator(0.0, 0.1);
-        m.mutate(&mut gene.0.x, rnd);
-        m.mutate(&mut gene.0.y, rnd);
-        m.mutate(&mut gene.0.z, rnd);
-        m.mutate(&mut gene.0.w, rnd);
-        4
+        let mut count = 0;
+        count += m.mutate(&mut gene.0.x, rnd);
+        count += m.mutate(&mut gene.0.y, rnd);
+        count += m.mutate(&mut gene.0.z, rnd);
+        count += m.mutate(&mut gene.0.w, rnd);
+        count
     }
 
     pub fn mutate_one<R>(gene: &mut Self, rnd: &mut R) -> u32
@@ -183,13 +184,9 @@ impl NVec4 {
             2 => m.mutate(&mut gene.0.z, rnd),
             3 => m.mutate(&mut gene.0.w, rnd),
             _ => unreachable!(),
-        };
-        1
+        }
     }
 }
-
-// #[derive(Clone, Debug)]
-// struct BrainGraph(DiGraph<NVec4, ()>);
 
 pub struct Context {
     time: f32,
@@ -365,8 +362,8 @@ impl BitBrain {
         for node_index in &update {
             use petgraph::Direction::*;
             let node = graph[*node_index];
-            if let Some(_aux_size) = node.aux_storage() {
-                aux.push(VecDeque::new()); // TODO: Alloc with size
+            if let Some(aux_size) = node.aux_storage() {
+                aux.push(VecDeque::with_capacity(aux_size + 1));
             }
 
             neurons.push(node);
@@ -464,15 +461,28 @@ where
     // nodes.mutate(graph, rng)
 }
 
-pub fn brain_generator<R>(rng: &mut R) -> DiGraph<NVec4, ()>
+pub fn generate_brain<R>(sensor_count: usize, muscle_count: usize, rng: &mut R) -> DiGraph<NVec4, ()>
 where
     R: Rng,
 {
     let mut g = DiGraph::new();
+    for i in 0..sensor_count {
+        g.add_node(Neuron::Sensor.into());
+    }
+    for i in 0..muscle_count {
+        g.add_node(Neuron::Muscle.into());
+    }
     let m = NVec4::generate;
     let n = add_connecting_node(m, move |_r: &mut R| ()).repeat(5);
     n.mutate(&mut g, rng);
     g
+}
+
+pub fn brain_generator<R>(rng: &mut R) -> DiGraph<NVec4, ()>
+where
+    R: Rng,
+{
+    generate_brain(0, 0, rng)
 }
 
 #[cfg(test)]
@@ -544,11 +554,17 @@ mod test {
         let ctx = Context { time: 0.0 };
         let delay = Delay(2);
         let mut aux = VecDeque::new();
+        assert_eq!(aux.len(), 0);
         assert_eq!(delay.eval(&ctx, 0.0, &[1.0], Some(&mut aux)), 0.0);
+        assert_eq!(aux.len(), 1);
         assert_eq!(delay.eval(&ctx, 0.0, &[0.5], Some(&mut aux)), 0.0);
+        assert_eq!(aux.len(), 2);
         assert_eq!(delay.eval(&ctx, 0.0, &[0.0], Some(&mut aux)), 1.0);
+        assert_eq!(aux.len(), 2);
         assert_eq!(delay.eval(&ctx, 0.0, &[0.0], Some(&mut aux)), 0.5);
+        assert_eq!(aux.len(), 2);
         assert_eq!(delay.eval(&ctx, 0.0, &[0.0], Some(&mut aux)), 0.0);
+        assert_eq!(aux.len(), 2);
     }
 
     #[test]
