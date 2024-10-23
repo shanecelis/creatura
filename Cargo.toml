@@ -18,13 +18,15 @@ bevy_panorbit_camera = "0.19.0"
 # avian3d = { git = "https://github.com/Jondolf/avian", version = "0.1.2" }
 avian3d = { version = "0.1.2" }
 parry3d = "0.15"
-petgraph = "0.6.5"
+petgraph = { version = "0.6.5", features = ["serde-1"] }
 rand = "0.8.5"
 avian_pickup = { git = "https://github.com/janhohenheim/avian_pickup", version = "0.1.0", optional = true }
 rand_distr = "0.4.3"
 weighted_rand = "0.4.2"
 eviolite = "0.1.1"
 clap = { version = "4.5.20", features = ["derive"] }
+serde = { version = "1.0.213", features = ["derive"] }
+serde_json = "1.0.132"
 # avian_interpolation3d = { git = "https://github.com/janhohenheim/avian_interpolation", version = "0.1.0" }
 
 [[bin]]

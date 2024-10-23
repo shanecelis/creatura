@@ -10,17 +10,82 @@ use bevy::{
 use creatura::{body::*, brain::*, graph::*, operator::*, *};
 use petgraph::prelude::*;
 use rand::{thread_rng, rngs::StdRng, SeedableRng};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use std::{
+    path::PathBuf,
+    ffi::OsString,
+    fs::File,
+    io::{Write, BufWriter},
+};
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Subcommand)]
+enum Subcommands {
+    /// Write creature to file path
+    #[command(arg_required_else_help = true)]
+    Write {
+        /// The path to write
+        #[arg(required = true, value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+    },
+    #[command(external_subcommand)]
+    External(Vec<OsString>),
+}
 
 #[derive(Parser, Debug)]
-struct Args {
+struct Cli {
+    #[command(subcommand)]
+    subcommand: Subcommands,
     #[arg(long)]
     seed: Option<u64>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Creature {
+    body: BodyGenotype,
+    brain: DiGraph<Neuron, ()>,
+}
+
 fn main() {
-    let args = Args::parse();
+    let cli = Cli::parse();
     let mut app = App::new();
+    // if let Some(seed) = args.seed {
+    //     app.insert_resource(Seed(seed));
+    // }
+    let creature = Creature {
+        body: match cli.seed {
+            Some(seed) => {
+                let mut rng = StdRng::seed_from_u64(seed);
+                BodyGenotype::generate(&mut rng)
+            }
+            None => {
+                snake_graph(3)
+            }
+        },
+        brain: {
+            let mut g = DiGraph::new();
+            let a = g.add_node(Neuron::Sin {
+                amp: 1.0,
+                freq: 1.0,
+                phase: 0.0,
+            });
+            // let a = g.add_node(Neuron::Const(1.0));
+            let b = g.add_node(Neuron::Muscle);
+            g.add_edge(a, b, ());
+            g
+        }
+    };
+    match cli.subcommand {
+        Subcommands::Write { path } => {
+            let file = File::create(path).expect("file");
+            let mut writer = BufWriter::new(file);
+            // let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+            serde_json::to_writer_pretty(&mut writer, &creature).expect("write");
+            writer.flush().expect("flush");
+            return ();
+        }
+        _ => {}
+    }
 
     let blue = Color::srgb_u8(27, 174, 228);
 
@@ -45,7 +110,7 @@ fn main() {
     ))
     .insert_resource(ClearColor(blue))
     .add_systems(Startup, setup_env)
-    .add_systems(Startup, construct_creature)
+    .add_systems(Startup, (move || creature.clone()).pipe(construct_creature))
     .add_systems(Update, (mutate_on_space, delete_on_backspace))
     .add_plugins(PanOrbitCameraPlugin);
     //
@@ -55,9 +120,6 @@ fn main() {
         RunFixedMainLoop,
         (handle_pickup_input).before(run_fixed_main_schedule),
     );
-    if let Some(seed) = args.seed {
-        app.insert_resource(Seed(seed));
-    }
     // Run the app
     app.run();
 }
@@ -92,10 +154,7 @@ fn handle_pickup_input(
 }
 
 #[derive(Component)]
-struct RootBody;
-
-#[derive(Component)]
-struct Creature(Vec<Entity>);
+struct RootBody(Vec<Entity>);
 
 #[derive(Resource)]
 struct Seed(u64);
@@ -108,27 +167,20 @@ fn rng_from_seed(seed: Option<Res<Seed>>) -> StdRng {
 }
 
 fn construct_creature(
+    In(input): In<Creature>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    seed: Option<Res<Seed>>,
+    // seed: Option<Res<Seed>>,
 ) {
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
     // let mut rng = rng_from_seed(seed);
     // let genotype = snake_graph(3);
-    let genotype = match seed {
-        Some(seed) => {
-            let mut rng = StdRng::seed_from_u64(seed.0);
-            BodyGenotype::generate(&mut rng)
-        }
-        None => {
-            snake_graph(3)
-        }
-    };
-    let mut is_root = true;
+    let genotype = input.body;
     let mut root_id = None;
     let mut muscles = vec![];
+
     let entities: Vec<Entity> = construct_phenotype(
         &genotype.graph,
         genotype.start,
@@ -147,10 +199,9 @@ fn construct_creature(
                 &mut materials,
                 commands,
             );
-            if is_root {
-                commands.entity(id).insert(RootBody);
-                is_root = false;
+            if root_id.is_none() {
                 root_id = Some(id);
+                // commands.entity(id).insert(RootBody);
             }
             Some(id)
         },
@@ -164,10 +215,10 @@ fn construct_creature(
         },
     )
     .expect("creature").into_iter()
-                       //.filter(|x| root_id.map(|y| y != *x).unwrap_or(true))
                        .collect();
 
-    commands.spawn(Creature(entities));
+    commands.entity(root_id.unwrap()).insert(RootBody(entities));
+    // commands.spawn(Creature(entities));
 
     let mut g = DiGraph::new();
     let a = g.add_node(Neuron::Sin {
@@ -193,16 +244,15 @@ fn construct_creature(
 }
 
 fn delete_on_backspace(
-    mut query: Query<(Entity, &Creature)>,
+    mut query: Query<&RootBody>,
     mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.just_pressed(KeyCode::Backspace) {
-        if let Ok((id, creature)) = query.get_single() {
+        if let Ok(creature) = query.get_single() {
             for id in &creature.0 {
                 commands.entity(*id).despawn_recursive();
             }
-            commands.entity(id).despawn_recursive();
         }
     }
 }

@@ -14,8 +14,9 @@ use petgraph::{
 };
 
 use rand_distr::{Distribution, Standard};
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub struct MuscleGene {
     pub parent: Quaternion,
     pub child: Quaternion,
@@ -33,7 +34,7 @@ impl MuscleGene {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub enum EdgeOp {
     /// Relfect the edge through a plane
     Reflect { normal: Dir3 },
@@ -63,7 +64,7 @@ impl Default for MuscleGene {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PartEdge {
     // joint_type:
     pub joint_rotation: Quaternion,
@@ -89,7 +90,7 @@ impl PartEdge {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 pub struct Part {
     pub extents: Vector3,
     pub position: Vector3,
@@ -261,6 +262,7 @@ pub fn snake_graph(part_count: u8) -> BodyGenotype {
     BodyGenotype { graph, start: index }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BodyGenotype {
     pub graph: DiGraph<Part, PartEdge>,
     pub start: NodeIndex<DefaultIx>,

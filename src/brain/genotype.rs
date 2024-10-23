@@ -10,9 +10,10 @@ use rand::{
 use std::cmp::Ordering;
 use std::f32::consts::TAU;
 use std::collections::VecDeque;
+use serde::{Serialize, Deserialize};
 
 const NEURON_VARIANT_COUNT: usize = 15;
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, PartialEq)]
 pub enum Neuron {
     Sensor,
     Muscle,
