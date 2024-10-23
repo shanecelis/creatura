@@ -1,4 +1,5 @@
 use avian3d::{math::*, prelude::*};
+#[cfg(feature = "pickup")]
 use avian_pickup::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
@@ -8,9 +9,17 @@ use bevy::{
 
 use creatura::{body::*, brain::*, graph::*, operator::*, *};
 use petgraph::prelude::*;
-use rand::thread_rng;
+use rand::{thread_rng, rngs::StdRng, SeedableRng};
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(long)]
+    seed: Option<u64>,
+}
 
 fn main() {
+    let args = Args::parse();
     let mut app = App::new();
 
     let blue = Color::srgb_u8(27, 174, 228);
@@ -27,6 +36,8 @@ fn main() {
         // DefaultPlugins,
         PhysicsDebugPlugin::default(),
         PhysicsPlugins::default(),
+
+        #[cfg(feature = "pickup")]
         AvianPickupPlugin::default(),
         // Add interpolation
         // AvianInterpolationPlugin::default(),
@@ -35,19 +46,24 @@ fn main() {
     .insert_resource(ClearColor(blue))
     .add_systems(Startup, setup_env)
     .add_systems(Startup, construct_creature)
-    .add_systems(Update, (mutate_on_space,
-delete_on_backspace))
-    .add_plugins(PanOrbitCameraPlugin)
+    .add_systems(Update, (mutate_on_space, delete_on_backspace))
+    .add_plugins(PanOrbitCameraPlugin);
     //
-    .add_systems(
+    //
+    #[cfg(feature = "pickup")]
+    app.add_systems(
         RunFixedMainLoop,
         (handle_pickup_input).before(run_fixed_main_schedule),
     );
+    if let Some(seed) = args.seed {
+        app.insert_resource(Seed(seed));
+    }
     // Run the app
     app.run();
 }
 
 /// Pass player input along to `avian_pickup`
+#[cfg(feature = "pickup")]
 fn handle_pickup_input(
     mut avian_pickup_input_writer: EventWriter<AvianPickupInput>,
     key_input: Res<ButtonInput<MouseButton>>,
@@ -81,16 +97,35 @@ struct RootBody;
 #[derive(Component)]
 struct Creature(Vec<Entity>);
 
+#[derive(Resource)]
+struct Seed(u64);
+
+fn rng_from_seed(seed: Option<Res<Seed>>) -> StdRng {
+    match seed {
+        Some(seed) => StdRng::seed_from_u64(seed.0),
+        None => StdRng::from_entropy()
+    }
+}
+
 fn construct_creature(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    seed: Option<Res<Seed>>,
 ) {
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
-    let mut rng = thread_rng();
+    // let mut rng = rng_from_seed(seed);
     // let genotype = snake_graph(3);
-    let genotype = BodyGenotype::generate(&mut rng);
+    let genotype = match seed {
+        Some(seed) => {
+            let mut rng = StdRng::seed_from_u64(seed.0);
+            BodyGenotype::generate(&mut rng)
+        }
+        None => {
+            snake_graph(3)
+        }
+    };
     let mut is_root = true;
     let mut root_id = None;
     let mut muscles = vec![];
@@ -248,12 +283,16 @@ fn setup_env(
     });
 
     // Camera
-    commands.spawn((
+    let thing = commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         PanOrbitCamera::default(),
+        ));
+
+    #[cfg(feature = "pickup")]
+    thing.insert(
         // Add this to set up the camera as the entity that can pick up
         // objects.
         AvianPickupActor {
@@ -263,7 +302,7 @@ fn setup_env(
             ..default()
         },
         // InputAccumulation::default(),
-    ));
+    );
 }
 
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {

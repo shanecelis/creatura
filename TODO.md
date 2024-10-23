@@ -19,4 +19,20 @@ I like this one but it also looks like "var else" which may be misleading.
 - [ ] Body sets sensors and muscles for brain
 - [ ] Brain shouldn't touch sensors or muscles
 - [ ] OR, brains with fewer sensors or muscles should be tossed
+
+## Bugs
+
+### Some bodies break shortly after creation.
+
+This one for instance:
+
+```sh
+cargo run -- --seed 1
+```
+
+## Random Notes
+
+This [skinned mesh](https://threejs.org/docs/#api/en/objects/SkinnedMesh) 3js
+example is cool. Might be cool to add to bevy.
+
      

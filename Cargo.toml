@@ -8,20 +8,23 @@ default-run = "main"
 [features]
 default = []
 dsp = ["dep:bevy_fundsp"]
+pickup = ["dep:avian_pickup"]
 
 [dependencies]
 bevy = "0.14"
 bevy_fundsp = { version = "0.4.0", optional = true }
 bevy_panorbit_camera = "0.19.0"
 # bevy_toon_shader = "0.3.0"
-avian3d = { git = "https://github.com/Jondolf/avian", version = "0.1.2" }
+# avian3d = { git = "https://github.com/Jondolf/avian", version = "0.1.2" }
+avian3d = { version = "0.1.2" }
 parry3d = "0.15"
 petgraph = "0.6.5"
 rand = "0.8.5"
-avian_pickup = { git = "https://github.com/janhohenheim/avian_pickup", version = "0.1.0" }
+avian_pickup = { git = "https://github.com/janhohenheim/avian_pickup", version = "0.1.0", optional = true }
 rand_distr = "0.4.3"
 weighted_rand = "0.4.2"
 eviolite = "0.1.1"
+clap = { version = "4.5.20", features = ["derive"] }
 # avian_interpolation3d = { git = "https://github.com/janhohenheim/avian_interpolation", version = "0.1.0" }
 
 [[bin]]
@@ -30,5 +33,5 @@ doc = false
 
 [patch.crates-io]
 petgraph = { path = '../petgraph' }
-# avian3d = { path = '../avian/crates/avian3d' }
+avian3d = { path = '../avian/crates/avian3d' }
 # parry3d = { path = '../parry/crates/parry3d' }
