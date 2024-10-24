@@ -15,7 +15,7 @@ use std::{
     path::PathBuf,
     ffi::OsString,
     fs::File,
-    io::{Write, BufWriter},
+    io::{Write, BufWriter, BufReader},
 };
 use serde::{Serialize, Deserialize};
 
@@ -25,6 +25,12 @@ enum Subcommands {
     #[command(arg_required_else_help = true)]
     Write {
         /// The path to write
+        #[arg(required = true, value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+    },
+    #[command(arg_required_else_help = true)]
+    Read {
+        /// The path to read
         #[arg(required = true, value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
         path: PathBuf,
     },
@@ -52,7 +58,7 @@ fn main() {
     // if let Some(seed) = args.seed {
     //     app.insert_resource(Seed(seed));
     // }
-    let creature = Creature {
+    let mut creature = Creature {
         body: match cli.seed {
             Some(seed) => {
                 let mut rng = StdRng::seed_from_u64(seed);
@@ -83,6 +89,11 @@ fn main() {
             serde_json::to_writer_pretty(&mut writer, &creature).expect("write");
             writer.flush().expect("flush");
             return ();
+        }
+        Subcommands::Read { path } => {
+            let file = File::open(path).expect("file");
+            let reader = BufReader::new(file);
+            creature = serde_json::from_reader(reader).expect("parse");
         }
         _ => {}
     }
@@ -220,17 +231,17 @@ fn construct_creature(
     commands.entity(root_id.unwrap()).insert(RootBody(entities));
     // commands.spawn(Creature(entities));
 
-    let mut g = DiGraph::new();
-    let a = g.add_node(Neuron::Sin {
-        amp: 1.0,
-        freq: 1.0,
-        phase: 0.0,
-    });
-    // let a = g.add_node(Neuron::Const(1.0));
-    let b = g.add_node(Neuron::Muscle);
-    g.add_edge(a, b, ());
-    let brain = BitBrain::new(&g).unwrap();
-    let genotype: DiGraph<NVec4, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
+    // let mut g = DiGraph::new();
+    // let a = g.add_node(Neuron::Sin {
+    //     amp: 1.0,
+    //     freq: 1.0,
+    //     phase: 0.0,
+    // });
+    // // let a = g.add_node(Neuron::Const(1.0));
+    // let b = g.add_node(Neuron::Muscle);
+    // g.add_edge(a, b, ());
+    let brain = BitBrain::new(&input.brain).unwrap();
+    let genotype: DiGraph<NVec4, ()> = input.brain.map(|_ni, n| (*n).into(), |_, _| ());
 
     commands.spawn((
         NervousSystem {
