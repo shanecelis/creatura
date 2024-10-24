@@ -34,14 +34,12 @@ enum Subcommands {
         #[arg(required = true, value_name = "FILE", value_hint = clap::ValueHint::FilePath)]
         path: PathBuf,
     },
-    #[command(external_subcommand)]
-    External(Vec<OsString>),
 }
 
 #[derive(Parser, Debug)]
 struct Cli {
     #[command(subcommand)]
-    subcommand: Subcommands,
+    subcommand: Option<Subcommands>,
     #[arg(long)]
     seed: Option<u64>,
 }
@@ -81,21 +79,23 @@ fn main() {
             g
         }
     };
-    match cli.subcommand {
-        Subcommands::Write { path } => {
-            let file = File::create(path).expect("file");
-            let mut writer = BufWriter::new(file);
-            // let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-            serde_json::to_writer_pretty(&mut writer, &creature).expect("write");
-            writer.flush().expect("flush");
-            return ();
+    if let Some(subcommand) = cli.subcommand {
+        match subcommand {
+            Subcommands::Write { path } => {
+                let file = File::create(path).expect("file");
+                let mut writer = BufWriter::new(file);
+                // let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+                serde_json::to_writer_pretty(&mut writer, &creature).expect("write");
+                writer.flush().expect("flush");
+                return ();
+            }
+            Subcommands::Read { path } => {
+                let file = File::open(path).expect("file");
+                let reader = BufReader::new(file);
+                creature = serde_json::from_reader(reader).expect("parse");
+            }
+            _ => {}
         }
-        Subcommands::Read { path } => {
-            let file = File::open(path).expect("file");
-            let reader = BufReader::new(file);
-            creature = serde_json::from_reader(reader).expect("parse");
-        }
-        _ => {}
     }
 
     let blue = Color::srgb_u8(27, 174, 228);
@@ -182,12 +182,9 @@ fn construct_creature(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    // seed: Option<Res<Seed>>,
 ) {
     let pink = Color::srgb_u8(253, 53, 176);
     let density = 1.0;
-    // let mut rng = rng_from_seed(seed);
-    // let genotype = snake_graph(3);
     let genotype = input.body;
     let mut root_id = None;
     let mut muscles = vec![];
@@ -200,7 +197,7 @@ fn construct_creature(
         Vector3::X,
         Vector3::Y,
         &mut commands,
-        move |part, commands| {
+        |part, commands| {
             let id = cube_body(
                 part,
                 part.position,
@@ -211,8 +208,8 @@ fn construct_creature(
                 commands,
             );
             if root_id.is_none() {
+                info!("set root id {id}");
                 root_id = Some(id);
-                // commands.entity(id).insert(RootBody);
             }
             Some(id)
         },
@@ -228,18 +225,13 @@ fn construct_creature(
     .expect("creature").into_iter()
                        .collect();
 
-    commands.entity(root_id.unwrap()).insert(RootBody(entities));
-    // commands.spawn(Creature(entities));
+    // If the lambda above is move ||, then root_id will be None.
+    if let Some(id) = root_id {
+        commands.entity(id).insert(RootBody(entities));
+    } else {
+        warn!("No root id");
+    }
 
-    // let mut g = DiGraph::new();
-    // let a = g.add_node(Neuron::Sin {
-    //     amp: 1.0,
-    //     freq: 1.0,
-    //     phase: 0.0,
-    // });
-    // // let a = g.add_node(Neuron::Const(1.0));
-    // let b = g.add_node(Neuron::Muscle);
-    // g.add_edge(a, b, ());
     let brain = BitBrain::new(&input.brain).unwrap();
     let genotype: DiGraph<NVec4, ()> = input.brain.map(|_ni, n| (*n).into(), |_, _| ());
 
