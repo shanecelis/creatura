@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
+use crate::math::*;
 
 /// Stamp info.
 pub struct StampInfo {

@@ -1,4 +1,5 @@
 use crate::stamp::*;
+#[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 pub mod brain;
@@ -6,21 +7,26 @@ pub mod body;
 pub mod operator;
 mod repeat_visit_map;
 pub mod stamp;
+use std::f32::consts::TAU;
 
 pub mod graph;
 pub mod rdfs;
+pub mod math;
 //
 #[derive(Component)]
 pub struct MuscleRange {
-    pub min: Scalar,
-    pub max: Scalar,
+    pub min: math::Scalar,
+    pub max: math::Scalar,
 }
+
 
 /// Use an even and odd part scheme so that the root part is even. Every part
 /// successively attached is odd then even then odd. Then we don't allow even
 /// and odd parts to collide. This is how we can create our own "no collisions
 /// between objects that share a joint."
-#[derive(PhysicsLayer, Default)]
+///
+#[cfg_attr(feature = "avian", derive(PhysicsLayer))]
+#[derive(Default)]
 pub enum Layer {
     Ground,
     #[default]
@@ -32,13 +38,13 @@ pub enum Layer {
 /// Sensor `value` $\in [0, 1]$.
 #[derive(Component, Default)]
 pub struct Sensor {
-    pub value: Scalar,
+    pub value: math::Scalar,
 }
 
 /// Muscle `value` $\in [0, 1]$.
 #[derive(Component, Default)]
 pub struct Muscle {
-    pub value: Scalar,
+    pub value: math::Scalar,
 }
 
 pub struct CreaturaPlugin;
@@ -46,13 +52,17 @@ pub struct CreaturaPlugin;
 impl Plugin for CreaturaPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(brain::plugin)
-            .add_systems(Update, keyboard_brain)
             .add_systems(Update, oscillate_muscles)
-            .add_systems(Update, oscillate_brain)
+            .add_systems(Update, oscillate_brain);
+
+        #[cfg(feature = "avian")]
+        app
+            .add_systems(Update, keyboard_brain)
             .add_systems(FixedUpdate, sync_muscles);
     }
 }
 
+#[cfg(feature = "avian")]
 #[allow(clippy::type_complexity)]
 pub fn sync_muscles(
     mut joints: Query<
@@ -120,6 +130,7 @@ pub fn oscillate_brain(
 #[derive(Component)]
 pub struct KeyboardBrain;
 
+#[cfg(feature = "avian")]
 pub fn keyboard_brain(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -177,8 +188,8 @@ pub struct NervousSystem {
 
 #[derive(Component, Debug)]
 pub struct SpringOscillator {
-    pub freq: Scalar,
-    pub phase: Scalar,
+    pub freq: math::Scalar,
+    pub phase: math::Scalar,
 }
 
 impl SpringOscillator {

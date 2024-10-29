@@ -1,5 +1,6 @@
+#[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
-#[cfg(feature = "pickup")]
+#[cfg(all(feature = "avian", feature = "pickup"))]
 use avian_pickup::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
@@ -7,7 +8,7 @@ use bevy::{
     app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution,
 };
 
-use creatura::{body::*, brain::*, graph::*, operator::*, *};
+use creatura::{body::*, brain::*, graph::*, operator::*, *, math::*};
 use petgraph::prelude::*;
 use rand::{thread_rng, rngs::StdRng, SeedableRng};
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -108,22 +109,23 @@ fn main() {
         ..default()
     }));
     // Add plugins and startup system
+    #[cfg(feature = "avian")]
     app.add_plugins((
         // DefaultPlugins,
         PhysicsDebugPlugin::default(),
         PhysicsPlugins::default(),
 
-        #[cfg(feature = "pickup")]
+        #[cfg(all(feature = "avian", feature = "pickup"))]
         AvianPickupPlugin::default(),
         // Add interpolation
         // AvianInterpolationPlugin::default(),
-        CreaturaPlugin,
-    ))
-    .insert_resource(ClearColor(blue))
-    .add_systems(Startup, setup_env)
-    .add_systems(Startup, (move || creature.clone()).pipe(construct_creature))
-    .add_systems(Update, (mutate_on_space, delete_on_backspace))
-    .add_plugins(PanOrbitCameraPlugin);
+    ));
+    app.add_plugins(CreaturaPlugin)
+       .insert_resource(ClearColor(blue))
+       .add_systems(Startup, setup_env)
+       .add_systems(Startup, (move || creature.clone()).pipe(construct_creature))
+       .add_systems(Update, (mutate_on_space, delete_on_backspace))
+       .add_plugins(PanOrbitCameraPlugin);
     //
     //
     #[cfg(feature = "pickup")]
@@ -303,6 +305,7 @@ fn mutate_on_space(
 #[derive(Component)]
 struct Genotype<T>(T);
 
+#[cfg(feature = "avian")]
 fn setup_env(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -358,6 +361,21 @@ fn setup_env(
     );
 }
 
+#[cfg(not(feature = "avian"))]
+fn setup_env(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    todo!()
+}
+
+#[cfg(not(feature = "avian"))]
+fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
+    todo!()
+}
+
+#[cfg(feature = "avian")]
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
     let p_parent = parent.part.transform().transform_point(parent.anchor_local);
     let p_child = child.part.transform().transform_point(child.anchor_local);

@@ -1,11 +1,13 @@
+#[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
 use crate::{
     stamp::*,
     brain::Neuron,
     operator::{*, graph::*},
+    math::*,
 };
-use core::f32::consts::FRAC_PI_4;
+use core::f32::consts::{TAU, FRAC_PI_4};
 use rand::Rng;
 
 use petgraph::{
@@ -15,6 +17,7 @@ use petgraph::{
 
 use rand_distr::{Distribution, Standard};
 use serde::{Serialize, Deserialize};
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub struct MuscleGene {
@@ -109,10 +112,11 @@ impl Default for Part {
 
 impl Part {
     pub fn shape(&self) -> Cuboid {
-        let v = self.extents.f32();
+        let v = self.extents;
         Cuboid::new(v[0], v[1], v[2])
     }
 
+    #[cfg(feature = "avian")]
     pub fn collider(&self) -> Collider {
         let v = self.extents;
         Collider::cuboid(v[0], v[1], v[2])
@@ -127,7 +131,7 @@ impl Part {
         Transform {
             translation: self.position,
             rotation: self.rotation,
-            scale: Vector::ONE,
+            scale: Vector3::ONE,
         }
     }
 
@@ -205,6 +209,12 @@ impl Surface for Part {
         self.rotation
     }
 
+    #[cfg(not(feature = "avian"))]
+    fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
+        todo!()
+    }
+
+    #[cfg(feature = "avian")]
     fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
         self.collider()
             .cast_ray(
@@ -237,8 +247,8 @@ impl Stamp for Part {
 
 pub fn snake_graph(part_count: u8) -> BodyGenotype {
     let part = Part {
-        extents: Vector::new(1., 1., 1.),
-        position: Vector::ZERO,
+        extents: Vector3::new(1., 1., 1.),
+        position: Vector3::ZERO,
         rotation: Quaternion::IDENTITY,
     };
     let mut graph = DiGraph::new();

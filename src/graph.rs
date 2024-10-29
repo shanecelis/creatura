@@ -1,6 +1,6 @@
 use super::*;
-use crate::{rdfs::*, body::*};
-use core::f32::consts::FRAC_PI_4;
+use crate::{rdfs::*, body::*, math::*};
+use core::f32::consts::{FRAC_PI_4, PI};
 use petgraph::{
     graph::{DefaultIx},
     prelude::*,
@@ -136,6 +136,8 @@ where
             child.position = position;
             make_part(&child, commands).unwrap()
         };
+
+        #[cfg(feature = "avian")]
         commands.entity(child_id).insert(if depth % 2 == 0 {
             CollisionLayers::new([Layer::PartEven], [Layer::Ground, Layer::PartEven])
         } else {
@@ -161,6 +163,8 @@ pub struct JointConfig {
     pub tangent: Vector3,
 }
 
+
+#[cfg(feature = "avian")]
 pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
     commands
         .spawn({
@@ -178,7 +182,12 @@ pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
         })
         .id()
 }
+#[cfg(not(feature = "avian"))]
+pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
+    todo!()
+}
 
+#[cfg(feature = "avian")]
 pub fn cube_body(
     child: &Part,
     position: Vec3,
@@ -209,6 +218,18 @@ pub fn cube_body(
         .id()
 }
 
+#[cfg(not(feature = "avian"))]
+pub fn cube_body(
+    child: &Part,
+    position: Vec3,
+    color: Color,
+    density: f32,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+) -> Entity {
+    todo!()
+}
 #[cfg(test)]
 mod test {
     use super::*;
