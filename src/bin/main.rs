@@ -2,10 +2,13 @@
 use avian3d::{math::*, prelude::*};
 #[cfg(all(feature = "avian", feature = "pickup"))]
 use avian_pickup::prelude::*;
+#[cfg(feature = "rapier")]
+use bevy_rapier3d::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 use bevy::{
     app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution,
+    ecs::system::EntityCommands,
 };
 
 use creatura::{body::*, brain::*, graph::*, operator::*, *, math::*};
@@ -120,6 +123,10 @@ fn main() {
         // Add interpolation
         // AvianInterpolationPlugin::default(),
     ));
+    #[cfg(feature = "rapier")]
+    app.add_plugins((
+        RapierPhysicsPlugin::<NoUserData>::default(),
+        RapierDebugRenderPlugin::default()));
     app.add_plugins(CreaturaPlugin)
        .insert_resource(ClearColor(blue))
        .add_systems(Startup, setup_env)
@@ -306,6 +313,29 @@ fn mutate_on_space(
 struct Genotype<T>(T);
 
 #[cfg(feature = "avian")]
+fn setup_plane(mut commands: EntityCommands) {
+    commands.insert((
+        CollisionLayers::new(
+            [Layer::Ground],
+            [Layer::Part, Layer::PartEven, Layer::PartOdd],
+        ),
+        RigidBody::Static,
+        Collider::cuboid(10., 0.1, 10.),
+        ));
+}
+
+#[cfg(feature = "rapier")]
+fn setup_plane(mut commands: EntityCommands) {
+    commands.insert((
+        // CollisionLayers::new(
+        //     [Layer::Ground],
+        //     [Layer::Part, Layer::PartEven, Layer::PartOdd],
+        // ),
+        RigidBody::Fixed,
+        Collider::cuboid(10., 0.1, 10.),
+        ));
+}
+
 fn setup_env(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -313,19 +343,13 @@ fn setup_env(
 ) {
     let ground_color = Color::srgb_u8(226, 199, 184);
     // Ground
-    commands.spawn((
+    setup_plane(commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(10., 0.1, 10.)),
             material: materials.add(ground_color),
             ..default()
         },
-        CollisionLayers::new(
-            [Layer::Ground],
-            [Layer::Part, Layer::PartEven, Layer::PartOdd],
-        ),
-        RigidBody::Static,
-        Collider::cuboid(10., 0.1, 10.),
-    ));
+    )));
 
     // Light
     commands.spawn(DirectionalLightBundle {
@@ -361,19 +385,26 @@ fn setup_env(
     );
 }
 
-#[cfg(not(feature = "avian"))]
-fn setup_env(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    todo!()
+#[cfg(feature = "rapier")]
+fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
+    let p_parent = parent.part.transform().transform_point(parent.anchor_local);
+    let p_child = child.part.transform().transform_point(child.anchor_local);
+    let rest_length = (p_parent - p_child).length();
+    let spring_joint = SpringJointBuilder::new(rest_length, 100.0, 1.0)
+        .local_anchor1(parent.anchor_local)
+        .local_anchor2(child.anchor_local)
+        .build();
+    commands
+        .entity(child.id)
+        .insert(ImpulseJoint::new(parent.id, spring_joint))
+        .insert(Muscle::default())
+        .insert(MuscleRange {
+            min: 0.0,
+            max: rest_length * 2.0,
+        })
+        .id()
 }
 
-#[cfg(not(feature = "avian"))]
-fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
-    todo!()
-}
 
 #[cfg(feature = "avian")]
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {

@@ -1,6 +1,11 @@
 use super::*;
+#[cfg(feature = "rapier")]
+use bevy_rapier3d::prelude::*;
 use crate::{rdfs::*, body::*, math::*};
 use core::f32::consts::{FRAC_PI_4, PI};
+use bevy::{
+    ecs::system::EntityCommands,
+};
 use petgraph::{
     graph::{DefaultIx},
     prelude::*,
@@ -182,12 +187,47 @@ pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
         })
         .id()
 }
-#[cfg(not(feature = "avian"))]
+
+#[cfg(feature = "rapier")]
 pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
-    todo!()
+    let spherical_joint = FixedJointBuilder::new()
+        .local_anchor1(joint.parent_anchor)
+        .local_anchor2(joint.child_anchor)
+    // .limits(JointAxis::AngX, [-FRAC_PI_4, FRAC_PI_4])
+        ;
+    commands
+        .entity(joint.child)
+        .insert(ImpulseJoint::new(joint.parent, spherical_joint))
+        .id()
 }
 
 #[cfg(feature = "avian")]
+fn make_dynamic(mut commands: &mut EntityCommands, child: &Part,
+                position: Vec3,
+                density: f32) {
+    commands.insert((
+            // RigidBody::Static,
+            RigidBody::Dynamic,
+            Position(position),
+            MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
+            // c,
+            child.collider(),
+        ));
+}
+
+
+#[cfg(feature = "rapier")]
+fn make_dynamic(mut commands: &mut EntityCommands, child: &Part,
+                position: Vec3,
+                density: f32) {
+    commands.insert((
+        RigidBody::Dynamic,
+        TransformBundle::from(Transform::from_translation(position)),
+        ColliderMassProperties::Density(density),
+        child.collider(),
+    ));
+}
+
 pub fn cube_body(
     child: &Part,
     position: Vec3,
@@ -197,7 +237,7 @@ pub fn cube_body(
     materials: &mut Assets<StandardMaterial>,
     commands: &mut Commands,
 ) -> Entity {
-    commands
+    let mut entity_commands = commands
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(child.shape())),
@@ -208,35 +248,16 @@ pub fn cube_body(
                 }),
                 ..default()
             },
-            // RigidBody::Static,
-            RigidBody::Dynamic,
-            Position(position),
-            MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
-            // c,
-            child.collider(),
-        ))
+        ));
+    make_dynamic(&mut entity_commands, child, position, density);
+    entity_commands
         .id()
 }
 
-#[cfg(not(feature = "avian"))]
-pub fn cube_body(
-    child: &Part,
-    position: Vec3,
-    color: Color,
-    density: f32,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
-) -> Entity {
-    todo!()
-}
 #[cfg(test)]
 mod test {
     use super::*;
     
-    
-    // use petgraph::dot::Dot;
-
     #[test]
     fn test_cast_to() {
         let parent = Part {

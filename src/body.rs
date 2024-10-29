@@ -1,5 +1,7 @@
 #[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
+#[cfg(feature = "rapier")]
+use bevy_rapier3d::prelude::*;
 use bevy::prelude::*;
 use crate::{
     stamp::*,
@@ -122,6 +124,12 @@ impl Part {
         Collider::cuboid(v[0], v[1], v[2])
     }
 
+    #[cfg(feature = "rapier")]
+    pub fn collider(&self) -> Collider {
+        let v = self.extents;
+        Collider::cuboid(v[0] / 2.0 , v[1] / 2.0 , v[2] / 2.0 )
+    }
+
     pub fn volume(&self) -> Scalar {
         let v = self.extents;
         v.x * v.y * v.z
@@ -209,10 +217,10 @@ impl Surface for Part {
         self.rotation
     }
 
-    #[cfg(not(feature = "avian"))]
-    fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
-        todo!()
-    }
+    // #[cfg(not(any(feature = "avian", feature = "rapier")))]
+    // fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
+    //     todo!()
+    // }
 
     #[cfg(feature = "avian")]
     fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
@@ -226,6 +234,20 @@ impl Surface for Part {
                 false,
             )
             .map(|(toi, _normal)| dir * toi)
+    }
+
+    #[cfg(feature = "rapier")]
+    fn cast_to(&self, dir: Dir3) -> Option<Vector3> {
+        self.collider()
+            .cast_ray(
+                Vec3::ZERO,
+                Quaternion::IDENTITY,
+                Vec3::ZERO,
+                (self.rotation.inverse() * dir).as_vec3(),
+                100.,
+                false,
+            )
+            .map(|toi| dir * toi)
     }
 }
 
