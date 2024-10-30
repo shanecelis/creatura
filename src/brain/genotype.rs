@@ -1,16 +1,14 @@
-use crate::{operator::{*, graph::*}, Muscle, NervousSystem};
+use crate::{
+    operator::{graph::*, *},
+    Muscle, NervousSystem,
+};
 use bevy::prelude::*;
-use petgraph::{
-    algo::toposort,
-    prelude::*,
-};
-use rand::{
-    Rng,
-};
+use petgraph::{algo::toposort, prelude::*};
+use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::f32::consts::TAU;
 use std::collections::VecDeque;
-use serde::{Serialize, Deserialize};
+use std::f32::consts::TAU;
 
 const NEURON_VARIANT_COUNT: usize = 15;
 #[derive(Serialize, Deserialize, Clone, Debug, Copy, PartialEq)]
@@ -223,11 +221,13 @@ pub fn bitbrain_update(
 }
 
 impl Neuron {
-    fn eval(&self,
-            context: &Context,
-            state: f32,
-            inputs: &[f32],
-            aux: Option<&mut VecDeque<f32>>) -> f32 {
+    fn eval(
+        &self,
+        context: &Context,
+        state: f32,
+        inputs: &[f32],
+        aux: Option<&mut VecDeque<f32>>,
+    ) -> f32 {
         use Neuron::*;
         match self {
             Sensor => state,
@@ -249,7 +249,7 @@ impl Neuron {
             Deriv { dir: _ } => {
                 // todo!("Deriv")
                 0.0
-            },
+            }
             Threshold(t) => inputs
                 .first()
                 .and_then(|f| (*f >= *t).then_some(1.0))
@@ -290,7 +290,6 @@ fn order_neurons(a: &Neuron, ai: usize, b: &Neuron, bi: usize) -> Ordering {
 }
 
 impl Neuron {
-
     fn aux_storage(&self) -> Option<usize> {
         use Neuron::*;
         match self {
@@ -431,13 +430,16 @@ impl BitBrain {
                 scratch.push(self.read()[k]);
                 i += 1;
             }
-            self.write()[j] = neuron.eval(ctx, self.read()[j], &scratch,
-                                          neuron.aux_storage().map(|_|
-                                                                   {
-                                                                       let n = m;
-                                                                       m += 1;
-                                                                       &mut self.aux[n]
-                                                                   }));
+            self.write()[j] = neuron.eval(
+                ctx,
+                self.read()[j],
+                &scratch,
+                neuron.aux_storage().map(|_| {
+                    let n = m;
+                    m += 1;
+                    &mut self.aux[n]
+                }),
+            );
             j += 1;
         }
         self.eval_count += 1;
@@ -452,17 +454,16 @@ where
     let nodes = mutate_all_nodes(m);
     let edges = add_edge(|_r: &mut R| ());
     let rm_edge = remove_edge;
-    let weighted = WeightedMutator::new(vec![&nodes,
-                                             &edges,
-                                             &rm_edge],
-                                        &[1,
-                                          1,
-                                          1]);
+    let weighted = WeightedMutator::new(vec![&nodes, &edges, &rm_edge], &[1, 1, 1]);
     weighted.mutate(graph, rng)
     // nodes.mutate(graph, rng)
 }
 
-pub fn generate_brain<R>(sensor_count: usize, muscle_count: usize, rng: &mut R) -> DiGraph<NVec4, ()>
+pub fn generate_brain<R>(
+    sensor_count: usize,
+    muscle_count: usize,
+    rng: &mut R,
+) -> DiGraph<NVec4, ()>
 where
     R: Rng,
 {

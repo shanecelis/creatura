@@ -1,19 +1,19 @@
 use crate::stamp::*;
 #[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
+use bevy::prelude::*;
 #[cfg(feature = "rapier")]
 use bevy_rapier3d::prelude::*;
-use bevy::prelude::*;
-pub mod brain;
 pub mod body;
+pub mod brain;
 pub mod operator;
 mod repeat_visit_map;
 pub mod stamp;
 use std::f32::consts::TAU;
 
 pub mod graph;
-pub mod rdfs;
 pub mod math;
+pub mod rdfs;
 
 #[derive(Component)]
 pub struct MuscleRange {
@@ -50,10 +50,12 @@ pub struct Muscle {
 impl Muscle {
     pub fn apply(&self, range: Option<&MuscleRange>) -> math::Scalar {
         let value = self.value.clamp(0.0, 1.0);
-        range.map(|range| {
-            let delta = range.max - range.min;
-            value * delta + range.min
-        }).unwrap_or(value)
+        range
+            .map(|range| {
+                let delta = range.max - range.min;
+                value * delta + range.min
+            })
+            .unwrap_or(value)
     }
 }
 
@@ -94,10 +96,13 @@ pub fn sync_muscles(
         let rest_length = muscle.apply(range);
         match &mut joint.data {
             TypedJoint::SpringJoint(spring) => {
-                spring.data.set_motor_position(JointAxis::LinX, dbg!(-rest_length), 100.0, 1.0);
-            },
-            _ => { panic!(); }
-
+                spring
+                    .data
+                    .set_motor_position(JointAxis::LinX, dbg!(-rest_length), 100.0, 1.0);
+            }
+            _ => {
+                panic!();
+            }
         }
     }
 }
@@ -278,4 +283,3 @@ impl SpringOscillator {
         (TAU * self.freq * seconds + self.phase).sin()
     }
 }
-

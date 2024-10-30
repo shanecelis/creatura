@@ -1,9 +1,7 @@
 use petgraph::{
     graph::IndexType,
     prelude::*,
-    visit::{
-        GraphBase, IntoEdgesDirected, Visitable,
-    },
+    visit::{GraphBase, IntoEdgesDirected, Visitable},
     EdgeType,
 };
 

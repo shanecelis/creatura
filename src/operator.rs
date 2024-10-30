@@ -1,7 +1,4 @@
-use rand::{
-    distributions::uniform::SampleUniform,
-    Rng,
-};
+use rand::{distributions::uniform::SampleUniform, Rng};
 use rand_distr::{Distribution, Normal, StandardNormal};
 use std::ops::AddAssign;
 
@@ -96,7 +93,7 @@ pub trait Mutator<G, R> {
     /// Return a mutator that only applies itself with probability $p \in [0,
     /// 1]$.
     fn with_prob(self, p: f32) -> impl Mutator<G, R>
-        where
+    where
         Self: Sized,
         R: Rng,
     {

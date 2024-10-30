@@ -1,9 +1,8 @@
-
 #[cfg(feature = "avian")]
 mod avian_types {
     pub use avian3d::math::Quaternion;
-    pub use avian3d::math::Vector3;
     pub use avian3d::math::Scalar;
+    pub use avian3d::math::Vector3;
 }
 #[cfg(feature = "avian")]
 pub use avian_types::*;

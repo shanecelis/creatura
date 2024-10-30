@@ -2,26 +2,26 @@
 use avian3d::{math::*, prelude::*};
 #[cfg(all(feature = "avian", feature = "pickup"))]
 use avian_pickup::prelude::*;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 #[cfg(feature = "rapier")]
 use bevy_rapier3d::prelude::*;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 use bevy::{
-    app::RunFixedMainLoop, prelude::*, time::run_fixed_main_schedule, window::WindowResolution,
-    ecs::system::EntityCommands,
+    app::RunFixedMainLoop, ecs::system::EntityCommands, prelude::*, time::run_fixed_main_schedule,
+    window::WindowResolution,
 };
 
-use creatura::{body::*, brain::*, graph::*, operator::*, *, math::*};
-use petgraph::prelude::*;
-use rand::{thread_rng, rngs::StdRng, SeedableRng};
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use creatura::{body::*, brain::*, graph::*, math::*, operator::*, *};
+use petgraph::prelude::*;
+use rand::{rngs::StdRng, thread_rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use std::{
-    path::PathBuf,
     ffi::OsString,
     fs::File,
-    io::{Write, BufWriter, BufReader},
+    io::{BufReader, BufWriter, Write},
+    path::PathBuf,
 };
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Subcommand)]
 enum Subcommands {
@@ -66,9 +66,7 @@ fn main() {
                 let mut rng = StdRng::seed_from_u64(seed);
                 BodyGenotype::generate(&mut rng)
             }
-            None => {
-                snake_graph(3)
-            }
+            None => snake_graph(3),
         },
         brain: {
             let mut g = DiGraph::new();
@@ -81,7 +79,7 @@ fn main() {
             let b = g.add_node(Neuron::Muscle);
             g.add_edge(a, b, ());
             g
-        }
+        },
     };
     if let Some(subcommand) = cli.subcommand {
         match subcommand {
@@ -117,7 +115,6 @@ fn main() {
         // DefaultPlugins,
         PhysicsDebugPlugin::default(),
         PhysicsPlugins::default(),
-
         #[cfg(all(feature = "avian", feature = "pickup"))]
         AvianPickupPlugin::default(),
         // Add interpolation
@@ -126,13 +123,14 @@ fn main() {
     #[cfg(feature = "rapier")]
     app.add_plugins((
         RapierPhysicsPlugin::<NoUserData>::default(),
-        RapierDebugRenderPlugin::default()));
+        RapierDebugRenderPlugin::default(),
+    ));
     app.add_plugins(CreaturaPlugin)
-       .insert_resource(ClearColor(blue))
-       .add_systems(Startup, setup_env)
-       .add_systems(Startup, (move || creature.clone()).pipe(construct_creature))
-       .add_systems(Update, (mutate_on_space, delete_on_backspace))
-       .add_plugins(PanOrbitCameraPlugin);
+        .insert_resource(ClearColor(blue))
+        .add_systems(Startup, setup_env)
+        .add_systems(Startup, (move || creature.clone()).pipe(construct_creature))
+        .add_systems(Update, (mutate_on_space, delete_on_backspace))
+        .add_plugins(PanOrbitCameraPlugin);
     //
     //
     #[cfg(feature = "pickup")]
@@ -182,7 +180,7 @@ struct Seed(u64);
 fn rng_from_seed(seed: Option<Res<Seed>>) -> StdRng {
     match seed {
         Some(seed) => StdRng::seed_from_u64(seed.0),
-        None => StdRng::from_entropy()
+        None => StdRng::from_entropy(),
     }
 }
 
@@ -227,9 +225,7 @@ fn construct_creature(
                 commands,
             );
             if root_id.is_none() {
-                info!("set root id {id}");
                 root_id = Some(id);
-                // commands.entity(id).insert(RigidBody::Fixed);
                 make_static(&mut commands.entity(id));
             }
             Some(id)
@@ -243,8 +239,9 @@ fn construct_creature(
             })
         },
     )
-    .expect("creature").into_iter()
-                       .collect();
+    .expect("creature")
+    .into_iter()
+    .collect();
 
     // If the lambda above is move ||, then root_id will be None.
     if let Some(id) = root_id {
@@ -333,19 +330,12 @@ fn setup_plane(mut commands: EntityCommands) {
         ),
         RigidBody::Static,
         Collider::cuboid(10., 0.1, 10.),
-        ));
+    ));
 }
 
 #[cfg(feature = "rapier")]
 fn setup_plane(mut commands: EntityCommands) {
-    commands.insert((
-        // CollisionLayers::new(
-        //     [Layer::Ground],
-        //     [Layer::Part, Layer::PartEven, Layer::PartOdd],
-        // ),
-        RigidBody::Fixed,
-        Collider::cuboid(5., 0.05, 5.),
-        ));
+    commands.insert((RigidBody::Fixed, Collider::cuboid(5., 0.05, 5.)));
 }
 
 fn setup_env(
@@ -355,13 +345,11 @@ fn setup_env(
 ) {
     let ground_color = Color::srgb_u8(226, 199, 184);
     // Ground
-    setup_plane(commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(10., 0.1, 10.)),
-            material: materials.add(ground_color),
-            ..default()
-        },
-    )));
+    setup_plane(commands.spawn((PbrBundle {
+        mesh: meshes.add(Cuboid::new(10., 0.1, 10.)),
+        material: materials.add(ground_color),
+        ..default()
+    },)));
 
     // Light
     commands.spawn(DirectionalLightBundle {
@@ -381,7 +369,7 @@ fn setup_env(
             ..default()
         },
         PanOrbitCamera::default(),
-        ));
+    ));
 
     #[cfg(feature = "pickup")]
     thing.insert(
@@ -407,8 +395,7 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
     let spring_joint = SpringJointBuilder::new(-rest_length, 100.0, 1.0)
         .local_anchor1(parent.anchor_local)
         .local_anchor2(child.anchor_local)
-        .contacts_enabled(false)
-        ;
+        .contacts_enabled(false);
     commands
         .entity(child.id)
         .insert(ImpulseJoint::new(parent.id, spring_joint))
@@ -419,7 +406,6 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
         })
         .id()
 }
-
 
 #[cfg(feature = "avian")]
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
@@ -444,4 +430,3 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
         })
         .id()
 }
-

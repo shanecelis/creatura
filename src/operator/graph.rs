@@ -1,20 +1,13 @@
 //! Generic graph operators
 use super::*;
-use petgraph::{
-    graph::IndexType,
-    prelude::*,
-    EdgeType,
-};
+use petgraph::{graph::IndexType, prelude::*, EdgeType};
 use std::collections::HashMap;
 use weighted_rand::{
     builder::{NewBuilder, WalkerTableBuilder},
     table::WalkerTable,
 };
 
-use rand::{
-    Rng,
-    seq::IteratorRandom,
-};
+use rand::{seq::IteratorRandom, Rng};
 
 fn nodes_of_subtree<N, E, Ty, Ix>(
     graph: &mut Graph<N, E, Ty, Ix>,
@@ -217,7 +210,7 @@ where
 /// To mutate nodes with a 10% certain probability:
 ///
 /// ```ignore
-/// mutate_all_nodes(mutator.with_prob(0.1)); 
+/// mutate_all_nodes(mutator.with_prob(0.1));
 /// ```
 pub fn mutate_all_nodes<N, E, Ty, Ix, R>(
     mutator: impl Mutator<N, R>,
@@ -314,8 +307,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use rand::{rngs::StdRng, SeedableRng};
     use crate::brain::*;
+    use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
     fn weighted_mutator() {

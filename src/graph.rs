@@ -1,15 +1,10 @@
 use super::*;
+use crate::{body::*, math::*, rdfs::*};
+use bevy::ecs::system::EntityCommands;
 #[cfg(feature = "rapier")]
 use bevy_rapier3d::prelude::*;
-use crate::{rdfs::*, body::*, math::*};
 use core::f32::consts::{FRAC_PI_4, PI};
-use bevy::{
-    ecs::system::EntityCommands,
-};
-use petgraph::{
-    graph::{DefaultIx},
-    prelude::*,
-};
+use petgraph::{graph::DefaultIx, prelude::*};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ConstructError {}
@@ -168,7 +163,6 @@ pub struct JointConfig {
     pub tangent: Vector3,
 }
 
-
 #[cfg(feature = "avian")]
 pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
     commands
@@ -238,24 +232,19 @@ pub fn revolute_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
 }
 
 #[cfg(feature = "avian")]
-fn make_dynamic(mut commands: &mut EntityCommands, child: &Part,
-                position: Vec3,
-                density: f32) {
+fn make_dynamic(mut commands: &mut EntityCommands, child: &Part, position: Vec3, density: f32) {
     commands.insert((
-            // RigidBody::Static,
-            RigidBody::Dynamic,
-            Position(position),
-            MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
-            // c,
-            child.collider(),
-        ));
+        // RigidBody::Static,
+        RigidBody::Dynamic,
+        Position(position),
+        MassPropertiesBundle::new_computed(&child.collider(), child.volume() * density),
+        // c,
+        child.collider(),
+    ));
 }
 
-
 #[cfg(feature = "rapier")]
-fn make_dynamic(mut commands: &mut EntityCommands, child: &Part,
-                position: Vec3,
-                density: f32) {
+fn make_dynamic(mut commands: &mut EntityCommands, child: &Part, position: Vec3, density: f32) {
     commands.insert((
         RigidBody::Dynamic,
         TransformBundle::from(Transform::from_translation(position)),
@@ -273,27 +262,23 @@ pub fn cube_body(
     materials: &mut Assets<StandardMaterial>,
     commands: &mut Commands,
 ) -> Entity {
-    let mut entity_commands = commands
-        .spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(child.shape())),
-                material: materials.add(StandardMaterial {
-                    base_color: color,
-                    // emissive: Color::WHITE.into(),
-                    ..default()
-                }),
-                ..default()
-            },
-        ));
+    let mut entity_commands = commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(child.shape())),
+        material: materials.add(StandardMaterial {
+            base_color: color,
+            // emissive: Color::WHITE.into(),
+            ..default()
+        }),
+        ..default()
+    },));
     make_dynamic(&mut entity_commands, child, position, density);
-    entity_commands
-        .id()
+    entity_commands.id()
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    
+
     #[test]
     fn test_cast_to() {
         let parent = Part {
@@ -314,5 +299,4 @@ mod test {
         let c = a * b.inverse();
         assert!(c.angle_between(b) < 0.01);
     }
-
 }

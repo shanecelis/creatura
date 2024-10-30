@@ -1,25 +1,21 @@
+use crate::{
+    brain::Neuron,
+    math::*,
+    operator::{graph::*, *},
+    stamp::*,
+};
 #[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
+use bevy::prelude::*;
 #[cfg(feature = "rapier")]
 use bevy_rapier3d::prelude::*;
-use bevy::prelude::*;
-use crate::{
-    stamp::*,
-    brain::Neuron,
-    operator::{*, graph::*},
-    math::*,
-};
-use core::f32::consts::{TAU, FRAC_PI_4};
+use core::f32::consts::{FRAC_PI_4, TAU};
 use rand::Rng;
 
-use petgraph::{
-    graph::DefaultIx,
-    prelude::*,
-};
+use petgraph::{graph::DefaultIx, prelude::*};
 
 use rand_distr::{Distribution, Standard};
-use serde::{Serialize, Deserialize};
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub struct MuscleGene {
@@ -30,7 +26,9 @@ pub struct MuscleGene {
 
 impl MuscleGene {
     fn generate<R>(rng: &mut R) -> MuscleGene
-    where R: Rng {
+    where
+        R: Rng,
+    {
         Self {
             parent: Quat::from_rng(rng),
             child: Quat::from_rng(rng),
@@ -50,10 +48,14 @@ pub enum EdgeOp {
 impl EdgeOp {
     pub fn generate<R: Rng>(rng: &mut R) -> EdgeOp {
         if rng.with_prob(0.5) {
-            EdgeOp::Reflect { normal: Dir3::from_rng(rng) }
+            EdgeOp::Reflect {
+                normal: Dir3::from_rng(rng),
+            }
         } else {
-            EdgeOp::Radial { normal: Dir3::from_rng(rng),
-                             symmetry: rng.gen_range(1..=8) }
+            EdgeOp::Radial {
+                normal: Dir3::from_rng(rng),
+                symmetry: rng.gen_range(1..=8),
+            }
         }
     }
 }
@@ -67,7 +69,6 @@ impl Default for MuscleGene {
         }
     }
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PartEdge {
@@ -127,7 +128,7 @@ impl Part {
     #[cfg(feature = "rapier")]
     pub fn collider(&self) -> Collider {
         let v = self.extents;
-        Collider::cuboid(v[0] / 2.0 , v[1] / 2.0 , v[2] / 2.0 )
+        Collider::cuboid(v[0] / 2.0, v[1] / 2.0, v[2] / 2.0)
     }
 
     pub fn volume(&self) -> Scalar {
@@ -143,22 +144,28 @@ impl Part {
         }
     }
 
-    pub fn generate<R>(rng: &mut R) -> Part where R: Rng {
+    pub fn generate<R>(rng: &mut R) -> Part
+    where
+        R: Rng,
+    {
         let v = uniform_generator(0.1, 2.0);
         let w = uniform_generator(0.0, TAU);
         Part {
-            extents: Vec3::new(v.generate(rng),
-                               v.generate(rng),
-                               v.generate(rng)),
+            extents: Vec3::new(v.generate(rng), v.generate(rng), v.generate(rng)),
             position: Vector3::ZERO,
-            rotation: Quat::from_euler(EulerRot::XYZ,
-                                       w.generate(rng),
-                                       w.generate(rng),
-                                       w.generate(rng))
+            rotation: Quat::from_euler(
+                EulerRot::XYZ,
+                w.generate(rng),
+                w.generate(rng),
+                w.generate(rng),
+            ),
         }
     }
 
-    pub fn mutate<R>(&mut self, rng: &mut R) -> u32 where R: Rng {
+    pub fn mutate<R>(&mut self, rng: &mut R) -> u32
+    where
+        R: Rng,
+    {
         let v = uniform_mutator(-0.2, 0.2);
         // let w = uniform_mutator(-FRAC_PI_4, FRAC_PI_4);
         let mut count = 0;
@@ -172,30 +179,29 @@ impl Part {
     }
 }
 
-
 /// Convert a `FromRng` into a `Generator`.
-pub fn into_generator<T, R>() -> impl Generator<T,R>
-    where
+pub fn into_generator<T, R>() -> impl Generator<T, R>
+where
     T: FromRng,
     Standard: Distribution<T>,
-    R: Rng {
+    R: Rng,
+{
     move |rng: &mut R| T::from_rng(rng)
 }
 
 pub fn to_vec3<R>(v: impl Generator<f32, R>) -> impl Generator<Vec3, R> {
-    move |rng: &mut R|
-    Vec3::new(v.generate(rng),
-              v.generate(rng),
-              v.generate(rng))
+    move |rng: &mut R| Vec3::new(v.generate(rng), v.generate(rng), v.generate(rng))
 }
 
 pub fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Quat, R> {
-    move |rng: &mut R|
-    Quat::from_euler(EulerRot::XYZ,
-                     generator.generate(rng),
-                     generator.generate(rng),
-                     generator.generate(rng))
-
+    move |rng: &mut R| {
+        Quat::from_euler(
+            EulerRot::XYZ,
+            generator.generate(rng),
+            generator.generate(rng),
+            generator.generate(rng),
+        )
+    }
 }
 
 // impl<R,S,T> From<Generator<f32, R>> for Generator<Vec3, R>
@@ -291,7 +297,10 @@ pub fn snake_graph(part_count: u8) -> BodyGenotype {
             }],
         },
     );
-    BodyGenotype { graph, start: index }
+    BodyGenotype {
+        graph,
+        start: index,
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -301,7 +310,10 @@ pub struct BodyGenotype {
 }
 
 impl BodyGenotype {
-    pub fn generate<R>(rng: &mut R) -> Self where R: Rng {
+    pub fn generate<R>(rng: &mut R) -> Self
+    where
+        R: Rng,
+    {
         let mut graph = DiGraph::new();
         let node_gen = Part::generate;
         let edge_gen = PartEdge::generate;
@@ -311,10 +323,7 @@ impl BodyGenotype {
         info!("Generate body genotype with {count} mutations.");
 
         println!("{:?}", petgraph::dot::Dot::with_config(&graph, &[]));
-        BodyGenotype {
-            graph,
-            start
-        }
+        BodyGenotype { graph, start }
     }
 
     pub fn sensor_count(&self) -> usize {

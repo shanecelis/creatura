@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+use crate::math::*;
 #[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
-use crate::math::*;
 
 /// Stamp info.
 pub struct StampInfo {
@@ -35,4 +35,3 @@ pub trait Stamp: Surface {
     /// touch.
     fn stamp(&self, onto: &impl Surface, in_dir: Dir3) -> Option<StampInfo>;
 }
-
