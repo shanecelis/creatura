@@ -188,16 +188,52 @@ pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
         .id()
 }
 
+// #[cfg(feature = "rapier")]
+// pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
+//     let spherical_joint = SphericalJointBuilder::new()
+//         .local_anchor2(joint.parent_anchor)
+//         .local_anchor1(joint.child_anchor)
+//         .limits(JointAxis::AngY, [-FRAC_PI_4, FRAC_PI_4])
+//         .limits(JointAxis::AngZ, [-FRAC_PI_4, FRAC_PI_4])
+//         .limits(JointAxis::AngX, [0.0, 0.0])
+//         ;
+//     commands
+//         .entity(joint.child)
+//         .insert(ImpulseJoint::new(joint.parent, spherical_joint))
+//         .id()
+// }
 #[cfg(feature = "rapier")]
 pub fn spherical_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
-    let spherical_joint = FixedJointBuilder::new()
+    let mut spherical_joint = SphericalJointBuilder::new()
         .local_anchor1(joint.parent_anchor)
         .local_anchor2(joint.child_anchor)
-    // .limits(JointAxis::AngX, [-FRAC_PI_4, FRAC_PI_4])
+        .limits(JointAxis::AngZ, [-FRAC_PI_4, FRAC_PI_4])
+        .limits(JointAxis::AngX, [-FRAC_PI_4, FRAC_PI_4])
+        .limits(JointAxis::AngY, [0.0, 0.0])
+        .build()
+        // .contacts_enabled(false)
         ;
+    spherical_joint.data.set_contacts_enabled(false);
     commands
         .entity(joint.child)
-        .insert(ImpulseJoint::new(joint.parent, spherical_joint))
+        .insert(MultibodyJoint::new(joint.parent, spherical_joint.into()))
+        .id()
+}
+
+#[cfg(feature = "rapier")]
+pub fn revolute_joint(joint: &JointConfig, commands: &mut Commands) -> Entity {
+    // let spherical_joint = RevoluteJointBuilder::new(joint.tangent)
+    let mut spherical_joint = RevoluteJointBuilder::new(Vec3::Z)
+        .local_anchor1(joint.parent_anchor)
+        .local_anchor2(joint.child_anchor)
+        .limits([-FRAC_PI_4, FRAC_PI_4])
+        .build()
+        // .contacts_enabled(false)
+        ;
+    spherical_joint.data.set_contacts_enabled(false);
+    commands
+        .entity(joint.child)
+        .insert(MultibodyJoint::new(joint.parent, spherical_joint.into()))
         .id()
 }
 

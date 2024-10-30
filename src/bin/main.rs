@@ -186,6 +186,16 @@ fn rng_from_seed(seed: Option<Res<Seed>>) -> StdRng {
     }
 }
 
+#[cfg(feature = "avian")]
+fn make_static(mut commands: &mut EntityCommands) {
+    commands.insert(RigidBody::Static);
+}
+
+#[cfg(feature = "rapier")]
+fn make_static(mut commands: &mut EntityCommands) {
+    commands.insert(RigidBody::Fixed);
+}
+
 fn construct_creature(
     In(input): In<Creature>,
     mut commands: Commands,
@@ -219,6 +229,8 @@ fn construct_creature(
             if root_id.is_none() {
                 info!("set root id {id}");
                 root_id = Some(id);
+                // commands.entity(id).insert(RigidBody::Fixed);
+                make_static(&mut commands.entity(id));
             }
             Some(id)
         },
@@ -249,8 +261,8 @@ fn construct_creature(
             muscles,
             sensors: vec![],
         },
-        // KeyboardBrain,
-        brain,
+        KeyboardBrain,
+        // brain,
         Genotype(genotype),
     ));
 }
@@ -332,7 +344,7 @@ fn setup_plane(mut commands: EntityCommands) {
         //     [Layer::Part, Layer::PartEven, Layer::PartOdd],
         // ),
         RigidBody::Fixed,
-        Collider::cuboid(10., 0.1, 10.),
+        Collider::cuboid(5., 0.05, 5.),
         ));
 }
 
@@ -387,17 +399,20 @@ fn setup_env(
 
 #[cfg(feature = "rapier")]
 fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands) -> Entity {
+    // return child.id;
     let p_parent = parent.part.transform().transform_point(parent.anchor_local);
     let p_child = child.part.transform().transform_point(child.anchor_local);
     let rest_length = (p_parent - p_child).length();
-    let spring_joint = SpringJointBuilder::new(rest_length, 100.0, 1.0)
+    dbg!(rest_length);
+    let spring_joint = SpringJointBuilder::new(-rest_length, 100.0, 1.0)
         .local_anchor1(parent.anchor_local)
         .local_anchor2(child.anchor_local)
-        .build();
+        .contacts_enabled(false)
+        ;
     commands
         .entity(child.id)
         .insert(ImpulseJoint::new(parent.id, spring_joint))
-        .insert(Muscle::default())
+        .insert(Muscle { value: 0.5 })
         .insert(MuscleRange {
             min: 0.0,
             max: rest_length * 2.0,
@@ -422,7 +437,7 @@ fn build_muscle(parent: &MuscleSite, child: &MuscleSite, commands: &mut Commands
                 // .with_angular_velocity_damping(1.0)
                 .with_compliance(1.0 / 100.0),
         )
-        .insert(Muscle::default())
+        .insert(Muscle { value: 0.5 })
         .insert(MuscleRange {
             min: 0.0,
             max: rest_length * 2.0,
