@@ -1,7 +1,7 @@
 use crate::{
-    operator::{graph::*, *},
     Muscle, NervousSystem,
 };
+use genetic_ops::prelude::*;
 use bevy::prelude::*;
 use petgraph::{algo::toposort, prelude::*};
 use rand::Rng;

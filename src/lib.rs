@@ -6,7 +6,8 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 pub mod body;
 pub mod brain;
-pub mod operator;
+
+// pub mod operator;
 mod repeat_visit_map;
 pub mod stamp;
 use std::f32::consts::TAU;

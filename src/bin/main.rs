@@ -86,7 +86,6 @@ fn main() {
             Subcommands::Write { path } => {
                 let file = File::create(path).expect("file");
                 let mut writer = BufWriter::new(file);
-                // let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
                 serde_json::to_writer_pretty(&mut writer, &creature).expect("write");
                 writer.flush().expect("flush");
                 return ();
@@ -112,10 +111,9 @@ fn main() {
     // Add plugins and startup system
     #[cfg(feature = "avian")]
     app.add_plugins((
-        // DefaultPlugins,
         PhysicsDebugPlugin::default(),
         PhysicsPlugins::default(),
-        #[cfg(all(feature = "avian", feature = "pickup"))]
+        #[cfg(feature = "pickup")]
         AvianPickupPlugin::default(),
         // Add interpolation
         // AvianInterpolationPlugin::default(),
@@ -131,8 +129,7 @@ fn main() {
         .add_systems(Startup, (move || creature.clone()).pipe(construct_creature))
         .add_systems(Update, (mutate_on_space, delete_on_backspace))
         .add_plugins(PanOrbitCameraPlugin);
-    //
-    //
+
     #[cfg(feature = "pickup")]
     app.add_systems(
         RunFixedMainLoop,
@@ -258,8 +255,8 @@ fn construct_creature(
             muscles,
             sensors: vec![],
         },
-        KeyboardBrain,
-        // brain,
+        // KeyboardBrain,
+        brain,
         Genotype(genotype),
     ));
 }
@@ -315,8 +312,6 @@ fn mutate_on_space(
         }
     }
 }
-
-// fn hill_climber(last_fitness: Local<Option<
 
 #[derive(Component)]
 struct Genotype<T>(T);

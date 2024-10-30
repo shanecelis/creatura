@@ -1,9 +1,10 @@
 use crate::{
     brain::Neuron,
     math::*,
-    operator::{graph::*, *},
+    // operator::{graph::*, *},
     stamp::*,
 };
+use genetic_ops::prelude::*;
 #[cfg(feature = "avian")]
 use avian3d::{math::*, prelude::*};
 use bevy::prelude::*;
@@ -25,7 +26,7 @@ pub struct MuscleGene {
 }
 
 impl MuscleGene {
-    fn generate<R>(rng: &mut R) -> MuscleGene
+    fn gen<R>(rng: &mut R) -> MuscleGene
     where
         R: Rng,
     {
@@ -46,7 +47,7 @@ pub enum EdgeOp {
 }
 
 impl EdgeOp {
-    pub fn generate<R: Rng>(rng: &mut R) -> EdgeOp {
+    pub fn gen<R: Rng>(rng: &mut R) -> EdgeOp {
         if rng.with_prob(0.5) {
             EdgeOp::Reflect {
                 normal: Dir3::from_rng(rng),
@@ -82,16 +83,16 @@ pub struct PartEdge {
 }
 
 impl PartEdge {
-    fn generate<R: Rng>(rng: &mut R) -> PartEdge {
+    fn gen<R: Rng>(rng: &mut R) -> PartEdge {
         let s = to_vec3(uniform_generator(0.1, 1.2));
         let m = rng.gen_range(0..3);
         Self {
             joint_rotation: Quat::from_rng(rng),
             rotation: Quat::from_rng(rng),
-            scale: s.generate(rng),
-            iteration_count: uniform_generator(1, 5).generate(rng),
-            op: rng.with_prob(0.2).then_some(EdgeOp::generate(rng)),
-            muscles: MuscleGene::generate.into_iter(rng).take(m).collect(),
+            scale: s.gen(rng),
+            iteration_count: uniform_generator(1, 5).gen(rng),
+            op: rng.with_prob(0.2).then_some(EdgeOp::gen(rng)),
+            muscles: MuscleGene::gen.into_iter(rng).take(m).collect(),
         }
     }
 }
@@ -144,20 +145,20 @@ impl Part {
         }
     }
 
-    pub fn generate<R>(rng: &mut R) -> Part
+    pub fn gen<R>(rng: &mut R) -> Part
     where
         R: Rng,
     {
         let v = uniform_generator(0.1, 2.0);
         let w = uniform_generator(0.0, TAU);
         Part {
-            extents: Vec3::new(v.generate(rng), v.generate(rng), v.generate(rng)),
+            extents: Vec3::new(v.gen(rng), v.gen(rng), v.gen(rng)),
             position: Vector3::ZERO,
             rotation: Quat::from_euler(
                 EulerRot::XYZ,
-                w.generate(rng),
-                w.generate(rng),
-                w.generate(rng),
+                w.gen(rng),
+                w.gen(rng),
+                w.gen(rng),
             ),
         }
     }
@@ -180,7 +181,7 @@ impl Part {
 }
 
 /// Convert a `FromRng` into a `Generator`.
-pub fn into_generator<T, R>() -> impl Generator<T, R>
+pub fn into_generator<T, R>() -> impl Generator<R, Item = T>
 where
     T: FromRng,
     Standard: Distribution<T>,
@@ -189,17 +190,17 @@ where
     move |rng: &mut R| T::from_rng(rng)
 }
 
-pub fn to_vec3<R>(v: impl Generator<f32, R>) -> impl Generator<Vec3, R> {
-    move |rng: &mut R| Vec3::new(v.generate(rng), v.generate(rng), v.generate(rng))
+pub fn to_vec3<R>(v: impl Generator<R, Item = f32>) -> impl Generator<R, Item = Vec3> {
+    move |rng: &mut R| Vec3::new(v.gen(rng), v.gen(rng), v.gen(rng))
 }
 
-pub fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Quat, R> {
+pub fn quat_generator<R>(generator: impl Generator<R, Item = f32>) -> impl Generator<R, Item = Quat> {
     move |rng: &mut R| {
         Quat::from_euler(
             EulerRot::XYZ,
-            generator.generate(rng),
-            generator.generate(rng),
-            generator.generate(rng),
+            generator.gen(rng),
+            generator.gen(rng),
+            generator.gen(rng),
         )
     }
 }
@@ -212,9 +213,9 @@ pub fn quat_generator<R>(generator: impl Generator<f32, R>) -> impl Generator<Qu
 // {
 //     fn from(v: Generator<f32, R>) -> Self {
 //         move |rng: &mut R|
-//         Vec3::new(v.generate(rng),
-//                   v.generate(rng),
-//                   v.generate(rng))
+//         Vec3::new(v.gen(rng),
+//                   v.gen(rng),
+//                   v.gen(rng))
 //     }
 // }
 
@@ -310,14 +311,14 @@ pub struct BodyGenotype {
 }
 
 impl BodyGenotype {
-    pub fn generate<R>(rng: &mut R) -> Self
+    pub fn gen<R>(rng: &mut R) -> Self
     where
         R: Rng,
     {
         let mut graph = DiGraph::new();
-        let node_gen = Part::generate;
-        let edge_gen = PartEdge::generate;
-        let start = graph.add_node(node_gen.generate(rng));
+        let node_gen = Part::gen;
+        let edge_gen = PartEdge::gen;
+        let start = graph.add_node(node_gen.gen(rng));
         let add_nodes = add_connecting_node(node_gen, edge_gen).repeat(5);
         let count = add_nodes.mutate(&mut graph, rng);
         info!("Generate body genotype with {count} mutations.");
