@@ -146,16 +146,16 @@ impl From<Vec4> for NVec4 {
 }
 
 impl NVec4 {
-    pub fn generate<R>(rnd: &mut R) -> Self
+    pub fn gen<R>(rnd: &mut R) -> Self
     where
         R: Rng,
     {
         let g = uniform_generator(0.0, 1.0);
         NVec4(Vec4::new(
-            g.generate(rnd),
-            g.generate(rnd),
-            g.generate(rnd),
-            g.generate(rnd),
+            g.gen(rnd),
+            g.gen(rnd),
+            g.gen(rnd),
+            g.gen(rnd),
         ))
     }
 
@@ -450,11 +450,12 @@ pub fn brain_mutator<R>(graph: &mut DiGraph<NVec4, ()>, rng: &mut R) -> u32
 where
     R: Rng,
 {
-    let m = NVec4::mutate_one.with_prob(0.1);
+    let m = FnMutator::from(NVec4::mutate_one).with_prob(0.1);
     let nodes = mutate_all_nodes(m);
     let edges = add_edge(|_r: &mut R| ());
-    let rm_edge = remove_edge;
-    let weighted = WeightedMutator::new(vec![&nodes, &edges, &rm_edge], &[1, 1, 1]);
+    let rm_edge = FnMutator::from(remove_edge);
+    let weighted = WeightedMutator::new(vec![&nodes, &edges, &rm_edge
+    ], &[1, 1, 1]);
     weighted.mutate(graph, rng)
     // nodes.mutate(graph, rng)
 }
@@ -474,7 +475,7 @@ where
     for i in 0..muscle_count {
         g.add_node(Neuron::Muscle.into());
     }
-    let m = NVec4::generate;
+    let m = NVec4::gen;
     let n = add_connecting_node(m, move |_r: &mut R| ()).repeat(5);
     n.mutate(&mut g, rng);
     g

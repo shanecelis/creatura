@@ -99,7 +99,7 @@ pub fn sync_muscles(
             TypedJoint::SpringJoint(spring) => {
                 spring
                     .data
-                    .set_motor_position(JointAxis::LinX, dbg!(-rest_length), 100.0, 1.0);
+                    .set_motor_position(JointAxis::LinX, -rest_length, 100.0, 1.0);
             }
             _ => {
                 panic!();

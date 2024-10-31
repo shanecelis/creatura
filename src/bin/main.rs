@@ -12,7 +12,8 @@ use bevy::{
 };
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use creatura::{body::*, brain::*, graph::*, math::*, operator::*, *};
+use genetic_ops::prelude::*;
+use creatura::{body::*, brain::*, graph::*, math::*, *};
 use petgraph::prelude::*;
 use rand::{rngs::StdRng, thread_rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -64,7 +65,7 @@ fn main() {
         body: match cli.seed {
             Some(seed) => {
                 let mut rng = StdRng::seed_from_u64(seed);
-                BodyGenotype::generate(&mut rng)
+                BodyGenotype::gen(&mut rng)
             }
             None => snake_graph(3),
         },
@@ -283,7 +284,7 @@ fn mutate_on_space(
         let mut rng = rand::thread_rng();
         let (mut brain, mut genotype) = query.single_mut();
         let mut g = genotype.0.clone();
-        let count = brain_mutator.mutate(&mut g, &mut rng);
+        let count = brain_mutator(&mut g, &mut rng);
 
         let h: DiGraph<Neuron, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
         genotype.0 = g;
@@ -299,7 +300,7 @@ fn mutate_on_space(
     if input.just_pressed(KeyCode::Enter) {
         let mut rng = rand::thread_rng();
         let (mut brain, mut genotype) = query.single_mut();
-        let g = brain_generator.generate(&mut rng);
+        let g = brain_generator.gen(&mut rng);
 
         let h: DiGraph<Neuron, ()> = g.map(|_ni, n| (*n).into(), |_, _| ());
         genotype.0 = g;
